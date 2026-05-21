@@ -1,0 +1,16 @@
+---
+title: "Quadrant report"
+format: html
+---
+
+<!--
+Quadrant: spirometry reference value calculator
+License: AGPL-3.0-or-later
+
+Placeholder template. Real layout, parameters, and content are defined
+in Phase 4.
+-->
+
+Phase 0 placeholder. Report template is implemented in Phase 4.
+
+For research and educational purposes. Not for clinical decision-making.
