@@ -1,16 +1,77 @@
 ---
 title: "Quadrant report"
-format: html
+format:
+  html:
+    embed-resources: true
+    toc: false
+    page-layout: full
+    theme: cosmo
+params:
+  bundle_path: ""
+execute:
+  echo: false
+  warning: false
+  message: false
 ---
 
 <!--
 Quadrant: spirometry reference value calculator
 License: AGPL-3.0-or-later
 
-Placeholder template. Real layout, parameters, and content are defined
-in Phase 4.
+Template renders a one-page HTML report from a pre-built bundle
+serialised as RDS. All HTML fragments are pre-rendered by R/report.R
+so this template stays a thin shell with no R dependencies of its
+own beyond base R and htmltools (which Quarto already pulls in).
+Each chunk returns htmltools::HTML() so Quarto treats the content as
+raw HTML, not as markdown that happens to start with a tag.
 -->
 
-Phase 0 placeholder. Report template is implemented in Phase 4.
+```{r setup}
+bundle <- readRDS(params$bundle_path)
+subject <- bundle$subject
+family_blocks <- bundle$family_blocks
+```
 
-For research and educational purposes. Not for clinical decision-making.
+```{r}
+htmltools::HTML(sprintf(
+  '<p style="color:#475569; font-size: 0.9rem;">Generated %s</p>',
+  format(bundle$timestamp, "%Y-%m-%d %H:%M:%S %Z")
+))
+```
+
+## Subject
+
+```{r}
+htmltools::HTML(sprintf(
+  '<table class="table" style="max-width: 520px;"><tr><th>Age</th><td>%s years</td></tr><tr><th>Sex</th><td>%s</td></tr><tr><th>Height</th><td>%s cm</td></tr><tr><th>Ethnicity (GLI-2012)</th><td>%s</td></tr><tr><th>Ethnicity (NHANES III)</th><td>%s</td></tr><tr><th>Observed FEV1</th><td>%.2f L</td></tr><tr><th>Observed FVC</th><td>%.2f L</td></tr></table>',
+  subject$age_years, subject$sex_label, subject$height_cm,
+  subject$ethnicity_gli_label, subject$ethnicity_nhanes3_label,
+  subject$fev1, subject$fvc
+))
+```
+
+## Cross-family z-score comparison
+
+```{r}
+htmltools::HTML(paste0(bundle$chart_svg, bundle$comparison_text_html))
+```
+
+## Per-family results
+
+```{r}
+family_html <- vapply(names(family_blocks), function(fam_name) {
+  block <- family_blocks[[fam_name]]
+  sprintf(
+    '<div style="border:1px solid #e2e8f0; border-radius:8px; padding:14px 18px; margin-bottom:14px;"><h3 style="margin-top:0;">%s</h3><p style="color:#475569; font-size:0.9rem; margin-bottom:8px;">%s</p>%s%s<hr />%s</div>',
+    fam_name, block$subtitle, block$badge_html, block$table_html,
+    block$interpretation_html
+  )
+}, character(1))
+htmltools::HTML(paste(family_html, collapse = ""))
+```
+
+---
+
+```{r}
+htmltools::HTML('<p style="color:#475569; font-size:0.9rem;">For research and educational purposes. Not for clinical decision-making.</p>')
+```

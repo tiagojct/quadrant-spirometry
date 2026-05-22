@@ -24,6 +24,8 @@ A cross-family comparison chart sits at the top of the page as the hero visual. 
 
 Each per-family card below carries a coloured classification badge at the top, labelled with the ATS/ERS 2022 pattern and severity grade (for example, OBSTRUCTIVE · severe on a red pill, NORMAL on a green pill). The pill colour matches the severity band the FEV1 z-score sits in. Visual emphasis only, no diagnostic semantics.
 
+A "Download HTML report" button in the sidebar exports a self-contained HTML file with the inputs, the embedded cross-family SVG chart, the per-family tables, badges, and interpretation blocks, the disclaimer, and a timestamp. Use the browser's Print menu on the downloaded HTML to produce a PDF. Native PDF export is deferred to a follow-up phase to avoid requiring a LaTeX or Typst toolchain on every host.
+
 PDF export arrives in Phase 4. Subsequent phases are described in ROADMAP.md.
 
 ## How to run locally

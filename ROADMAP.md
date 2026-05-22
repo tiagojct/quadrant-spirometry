@@ -39,9 +39,17 @@ Each phase is roughly one weekend of focused work. Do not start a new phase befo
 
 ## Phase 4: Report export
 
-- Quarto template for a one-page PDF and HTML report
-- Includes inputs, both reference equation results, classification, disclaimer, timestamp
-- Downloadable from the app
+- Quarto template at inst/report_template.qmd renders a one-page HTML report
+- Report bundle assembled in R/report.R: subject inputs, all three reference equation results, the cross-family SVG chart embedded inline, the per-family classification badges, the interpretation blocks, the comparison text, and a timestamp
+- Disclaimer footer carried over from the UI verbatim
+- Download button in the sidebar; downloadHandler in the server calls render_quadrant_report and serves the rendered file
+- PDF output deferred to Phase 4b. The default Quarto PDF backend needs a LaTeX distribution that is not assumed to be present; the Typst backend works without LaTeX but would require a parallel Typst-native template. Browser print-to-PDF on the downloaded HTML covers the immediate need
+
+## Phase 4b: PDF report (deferred)
+
+- Decide between TinyTeX (Quarto's recommended LaTeX bundle, a few hundred MB) and a Typst-native parallel template
+- Add a Download PDF button alongside Download HTML
+- Add an integration test that renders a sample PDF in CI when the backend is available, and skips it otherwise
 
 ## Phase 5: Deploy
 

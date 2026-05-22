@@ -193,11 +193,7 @@ cross_family_chart_svg <- function(family_dfs) {
   }
 
   sprintf(
-    '<div style="width:100%%;">
-      <svg viewBox="0 0 %d %d"
-           style="display:block; width:100%%; height:auto;"
-           role="img" aria-label="cross-family z-score comparison">%s%s%s%s%s</svg>
-     </div>',
+    '<div style="width:100%%;"><svg viewBox="0 0 %d %d" style="display:block;width:100%%;height:auto;" role="img" aria-label="cross-family z-score comparison">%s%s%s%s%s</svg></div>',
     total_width, total_height,
     band_labels,
     paste(rows_svg, collapse = ""),

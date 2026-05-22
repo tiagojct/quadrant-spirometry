@@ -12,14 +12,24 @@ source("R/nhanes3.R")
 source("R/interpretation.R")
 source("R/visuals.R")
 source("R/ui_components.R")
+source("R/report.R")
 
 ui <- page_sidebar(
   theme = bs_theme(version = 5),
   title = "Quadrant",
+  fillable = FALSE,
   sidebar = sidebar(
     title = "Inputs",
     width = 320,
-    subject_input_card()
+    subject_input_card(),
+    tags$hr(),
+    tags$h6("Report", class = "mt-2 mb-2"),
+    downloadButton("download_html", "Download HTML report",
+                   class = "btn-sm w-100"),
+    tags$p(
+      class = "text-muted small mt-2 mb-0",
+      "PDF: use the browser's Print menu on the downloaded HTML."
+    )
   ),
   gli_comparison_panel(),
   layout_columns(
@@ -175,6 +185,47 @@ server <- function(input, output, session) {
   output$gli_comparison_text <- renderUI({
     render_gli_comparison(results_gli_2012(), results_gli_2022())
   })
+
+  output$download_html <- downloadHandler(
+    filename = function() {
+      sprintf("quadrant-report-%s.html", format(Sys.time(), "%Y%m%d-%H%M%S"))
+    },
+    content = function(file) {
+      validate(need(inputs_ready(), "Enter complete values before exporting."))
+
+      subject <- list(
+        age_years              = input$age_years,
+        height_cm              = input$height_cm,
+        sex_label              = sex_label_from_code(input$sex_code),
+        ethnicity_gli_label    = ethnicity_label_from_code(input$ethnicity_gli, GLI_ETHNICITY),
+        ethnicity_nhanes3_label = ethnicity_label_from_code(input$ethnicity_nhanes3, NHANES3_ETHNICITY),
+        fev1                   = input$fev1,
+        fvc                    = input$fvc
+      )
+      results <- list(
+        gli_2012 = results_gli_2012(),
+        gli_2022 = results_gli_2022(),
+        nhanes3  = results_nhanes()
+      )
+      interpretations <- list(
+        gli_2012 = interpretation_gli_2012(),
+        gli_2022 = interpretation_gli_2022(),
+        nhanes3  = interpretation_nhanes3()
+      )
+      chart_svg <- cross_family_chart_svg(list(
+        "GLI-2012"        = results$gli_2012,
+        "GLI-Global 2022" = results$gli_2022,
+        "NHANES III"      = results$nhanes3
+      ))
+      comparison_text <- render_gli_comparison(results$gli_2012, results$gli_2022)
+
+      bundle <- prepare_report_bundle(subject, results, interpretations,
+                                      chart_svg, comparison_text)
+      rendered <- render_quadrant_report(bundle, output_format = "html")
+      file.copy(rendered, file, overwrite = TRUE)
+    },
+    contentType = "text/html"
+  )
 }
 
 shinyApp(ui, server)
