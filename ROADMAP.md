@@ -24,11 +24,11 @@ Each phase is roughly one weekend of focused work. Do not start a new phase befo
 
 ## Phase 2: GLI-Global 2022
 
-- Confirm rspiro version is 0.5 or newer
-- Add a parallel calculation path using pred_GLIgl, LLN_GLIgl, zscore_GLIgl
-- Side-by-side display of GLI-2012 and GLI-Global 2022 for the same input
-- Visual cue when z-score or classification differs between the two
-- Tests: 5 reference cases using rspiro outputs cross-checked against the official GLI calculator
+- rspiro 0.5 confirmed
+- Parallel calculation path using pred_GLIgl, LLN_GLIgl, zscore_GLIgl, pctpred_GLIgl, with no ethnicity argument since the equation is race-neutral
+- Side-by-side display of GLI-2012, GLI-Global 2022, and the historic NHANES III comparator on the same input
+- Comparison panel below the three result cards that flags any parameter where the above/below LLN classification differs between GLI-2012 and GLI-Global 2022
+- Tests: 5 reference cases per family, stored under tests/testthat/fixtures/. The maintainer cross-check against the official upstream calculator remains the acceptance gate
 
 ## Phase 3: ATS/ERS 2022 interpretation
 

@@ -10,9 +10,15 @@ For research and educational purposes. Not for clinical decision-making.
 
 ## Current status
 
-Phase 1: manual entry with side-by-side GLI-2012 and NHANES III calculations.
+Phase 2: side-by-side comparison across three reference equation families.
 
-The app accepts age, sex, height in centimetres, ethnicity (with separate dropdowns for the GLI and NHANES III category systems, since they differ), and observed FEV1 and FVC. It returns predicted, lower limit of normal, z-score, and percent of predicted for FEV1, FVC, and FEV1/FVC under each reference equation, displayed side by side so the operator can see how the classification of the same subject shifts between a 1999 and a 2012 reference equation.
+The app accepts age, sex, height in centimetres, ethnicity (with separate dropdowns for the GLI-2012 and NHANES III category systems, since they differ; GLI-Global 2022 is race-neutral and uses neither), and observed FEV1 and FVC. It returns predicted, lower limit of normal, z-score, and percent of predicted for FEV1, FVC, and FEV1/FVC under each of:
+
+- GLI-2012 (Quanjer et al., ERJ 2012)
+- GLI-Global 2022 race-neutral (Bowerman et al., AJRCCM 2023)
+- NHANES III (Hankinson et al., AJRCCM 1999)
+
+The three result panels sit side by side so the operator can see how the classification of the same subject shifts across reference equation generations. A comparison panel below the cards flags any parameter where the above or below LLN classification disagrees between GLI-2012 and GLI-Global 2022.
 
 Pattern classification (ATS/ERS 2022) and PDF export arrive in Phase 3 and Phase 4 respectively. Subsequent phases are described in ROADMAP.md.
 

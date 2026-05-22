@@ -86,6 +86,64 @@ render_reference_table <- function(reference_df) {
   )
 }
 
+#' Comparison panel between GLI-2012 and GLI-Global 2022.
+#'
+#' Highlights any spirometry parameter where the classification of
+#' normality (above or below LLN at z = -1.645) differs between the two
+#' equation families. Cases where both equations agree are listed
+#' compactly. Cases of disagreement are surfaced as the primary
+#' message, since they are the clinically interesting ones. No
+#' interpretation language is used; the panel describes the difference
+#' in z-scores and lets the reader draw the comparison.
+#' @keywords internal
+gli_comparison_panel <- function(gli_2012_df, gli_2022_df) {
+  bslib::card(
+    bslib::card_header("GLI-2012 vs GLI-Global 2022"),
+    bslib::card_body(
+      shiny::uiOutput("gli_comparison_text")
+    )
+  )
+}
+
+#' Render the body of the GLI-2012 vs GLI-Global 2022 comparison panel.
+#'
+#' @keywords internal
+render_gli_comparison <- function(gli_2012_df, gli_2022_df) {
+  if (is.null(gli_2012_df) || is.null(gli_2022_df)) {
+    return(shiny::tags$em("Enter values to compare equations."))
+  }
+  threshold <- -1.645
+  below_lln_2012 <- gli_2012_df$z_score < threshold
+  below_lln_2022 <- gli_2022_df$z_score < threshold
+  flipped <- below_lln_2012 != below_lln_2022
+
+  if (!any(flipped)) {
+    return(shiny::div(
+      shiny::tags$p(
+        "Both equations classify every parameter on the same side of the lower limit of normal."
+      ),
+      shiny::tags$p(class = "text-muted small",
+                    "Differences in z-score remain, even when classification agrees.")
+    ))
+  }
+
+  rows <- vapply(which(flipped), function(i) {
+    sprintf(
+      "%s: GLI-2012 z = %.2f (%s); GLI-Global 2022 z = %.2f (%s).",
+      gli_2012_df$parameter[i],
+      gli_2012_df$z_score[i],
+      if (below_lln_2012[i]) "below LLN" else "within LLN",
+      gli_2022_df$z_score[i],
+      if (below_lln_2022[i]) "below LLN" else "within LLN"
+    )
+  }, character(1))
+
+  shiny::div(
+    shiny::tags$p("Classification differs for:"),
+    shiny::tags$ul(lapply(rows, shiny::tags$li))
+  )
+}
+
 #' Minimal HTML table builder.
 #'
 #' knitr is not a project dependency; this helper produces a small

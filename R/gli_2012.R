@@ -7,7 +7,8 @@
 # units (height in centimetres, sex and ethnicity as integer codes from
 # R/constants.R) and returns a long-form data.frame, one row per
 # spirometry parameter, with the columns required by the wrapper
-# contract documented in CLAUDE.md.
+# contract documented in CLAUDE.md. Shared validation and assembly
+# helpers live in R/wrapper_helpers.R.
 
 #' Compute GLI-2012 reference values for a single subject.
 #'
@@ -66,83 +67,5 @@ compute_gli_2012 <- function(age_years, height_cm, sex_code, ethnicity_code,
   assemble_reference_table(
     observed = c(FEV1 = fev1, FVC = fvc, FEV1FVC = fev1_fvc_ratio),
     pred = pred, lln = lln, zscore = zscore, pctpred = pctpred
-  )
-}
-
-#' Validate subject-level inputs shared by every reference wrapper.
-#'
-#' Fails loudly with informative messages when inputs are missing,
-#' wrong length, out of plausible physiological range, or refer to an
-#' unsupported ethnicity code. The plausible ranges are loose by design:
-#' rspiro itself enforces equation-specific age and height domains.
-#' @keywords internal
-validate_subject_inputs <- function(age_years, height_cm, sex_code,
-                                    ethnicity_code, valid_ethnicity,
-                                    fev1, fvc) {
-  scalar_numeric <- function(x, label) {
-    if (length(x) != 1 || !is.numeric(x) || is.na(x)) {
-      stop(sprintf("%s must be a single non-missing numeric value.", label),
-           call. = FALSE)
-    }
-  }
-  scalar_numeric(age_years, "age_years")
-  scalar_numeric(height_cm, "height_cm")
-  scalar_numeric(fev1, "fev1")
-  scalar_numeric(fvc, "fvc")
-
-  if (age_years <= 0 || age_years > 120) {
-    stop("age_years must be a plausible age in years (0 to 120).",
-         call. = FALSE)
-  }
-  if (height_cm < 50 || height_cm > 250) {
-    stop("height_cm must be a plausible standing height in centimetres (50 to 250).",
-         call. = FALSE)
-  }
-  if (fev1 <= 0 || fvc <= 0) {
-    stop("fev1 and fvc must be positive values in litres.", call. = FALSE)
-  }
-  if (fev1 > fvc) {
-    stop("fev1 cannot exceed fvc; check the inputs.", call. = FALSE)
-  }
-  if (!(sex_code %in% SEX_CODES)) {
-    stop(sprintf("sex_code must be one of: %s.",
-                 paste(SEX_CODES, collapse = ", ")),
-         call. = FALSE)
-  }
-  if (!(ethnicity_code %in% valid_ethnicity)) {
-    stop(sprintf("ethnicity_code must be one of: %s.",
-                 paste(valid_ethnicity, collapse = ", ")),
-         call. = FALSE)
-  }
-  invisible(TRUE)
-}
-
-#' Assemble the long-form data.frame returned by every wrapper.
-#'
-#' rspiro returns wide single-row data.frames with prefixed columns
-#' (\code{pred.FEV1}, \code{LLN.FEV1}, etc). This helper reshapes those
-#' into a long-form table keyed by parameter, matching the contract in
-#' CLAUDE.md. Parameters missing from a given rspiro output (for
-#' instance, FEV1FVC is not always provided by every helper) are filled
-#' with NA so downstream UI code can render a consistent table.
-#' @keywords internal
-assemble_reference_table <- function(observed, pred, lln, zscore, pctpred) {
-  pull <- function(df, prefix, param) {
-    column <- paste0(prefix, ".", param)
-    if (column %in% names(df)) df[[column]] else NA_real_
-  }
-  data.frame(
-    parameter         = SPIROMETRY_PARAMS,
-    observed          = as.numeric(observed[SPIROMETRY_PARAMS]),
-    predicted         = vapply(SPIROMETRY_PARAMS, pull, numeric(1),
-                               df = pred, prefix = "pred"),
-    lln               = vapply(SPIROMETRY_PARAMS, pull, numeric(1),
-                               df = lln, prefix = "LLN"),
-    z_score           = vapply(SPIROMETRY_PARAMS, pull, numeric(1),
-                               df = zscore, prefix = "z.score"),
-    percent_predicted = vapply(SPIROMETRY_PARAMS, pull, numeric(1),
-                               df = pctpred, prefix = "pctpred"),
-    stringsAsFactors  = FALSE,
-    row.names         = NULL
   )
 }

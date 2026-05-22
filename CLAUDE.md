@@ -48,12 +48,13 @@ quadrant/
 ├── renv.lock
 ├── app.R
 ├── R/
+│   ├── constants.R
+│   ├── wrapper_helpers.R
 │   ├── gli_2012.R
 │   ├── gli_2022.R
 │   ├── nhanes3.R
 │   ├── interpretation.R
 │   ├── report.R
-│   ├── constants.R
 │   └── ui_components.R
 ├── inst/
 │   └── report_template.qmd
@@ -106,3 +107,4 @@ Append-only. Date format YYYY-MM-DD. New entries at the bottom.
 - 2026-05-22: Phase 1 scope amended. NHANES III added alongside GLI-2012 so the side-by-side comparison can show the evolution of normality classification from a pre-GLI to a modern reference equation. ECSC 1993 considered and rejected for v1: not provided by rspiro 0.5, and hand-implementing coefficients would violate the no-hand-implementation rule. Tracked as a wishlist item.
 - 2026-05-22: Wrapper return type changed from tibble to base R data.frame in long form (one row per parameter). Reason: rspiro itself returns base data.frames, and adopting tibble would introduce a new dependency without practical gain.
 - 2026-05-22: ULN column removed from the wrapper contract. The GLI 2012 paper does not define an upper limit of normal; reporting it would require either an unblessed symmetric mirror of LLN or a redefinition. Z-score remains as the directional indicator and is sufficient for the ATS/ERS 2022 interpretation rules in Phase 3.
+- 2026-05-22: Phase 2 shipped. GLI-Global 2022 (race-neutral) added as a third side-by-side panel alongside GLI-2012 and NHANES III. The race-neutral equation takes no ethnicity argument, so the wrapper compute_gli_global_2022 omits it. A comparison panel under the three result cards flags any spirometry parameter where the above/below LLN classification differs between GLI-2012 and GLI-Global 2022. Shared input validation and long-form table assembly extracted from R/gli_2012.R into R/wrapper_helpers.R so all three wrappers can reuse them without circular sourcing.

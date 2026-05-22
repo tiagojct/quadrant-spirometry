@@ -8,8 +8,8 @@
 # side view, so the operator can see how the classification of a single
 # individual evolves between a 1999 and a 2012 reference equation.
 # Shares the same return contract as the GLI-2012 wrapper. The helpers
-# assemble_reference_table and validate_subject_inputs are defined in
-# R/gli_2012.R and are reused here.
+# assemble_reference_table and validate_subject_inputs live in
+# R/wrapper_helpers.R and are reused here.
 
 #' Compute NHANES III reference values for a single subject.
 #'
