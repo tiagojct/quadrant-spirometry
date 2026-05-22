@@ -10,7 +10,11 @@ For research and educational purposes. Not for clinical decision-making.
 
 ## Current status
 
-Phase 0: project scaffold. The app launches a minimal Shiny page with a placeholder card and the standard disclaimer. No calculation logic is wired up yet. Subsequent phases are described in ROADMAP.md.
+Phase 1: manual entry with side-by-side GLI-2012 and NHANES III calculations.
+
+The app accepts age, sex, height in centimetres, ethnicity (with separate dropdowns for the GLI and NHANES III category systems, since they differ), and observed FEV1 and FVC. It returns predicted, lower limit of normal, z-score, and percent of predicted for FEV1, FVC, and FEV1/FVC under each reference equation, displayed side by side so the operator can see how the classification of the same subject shifts between a 1999 and a 2012 reference equation.
+
+Pattern classification (ATS/ERS 2022) and PDF export arrive in Phase 3 and Phase 4 respectively. Subsequent phases are described in ROADMAP.md.
 
 ## How to run locally
 
@@ -27,6 +31,15 @@ shiny::runApp()
 ```
 
 `renv::restore()` installs the package versions recorded in `renv.lock` into a project-local library. `shiny::runApp()` reads `app.R` and serves the app at a local URL printed to the R console.
+
+## How to run the tests
+
+```r
+setwd("tests")
+source("testthat.R")
+```
+
+The suite sources the files in `R/` directly (Quadrant is a Shiny app, not an R package) and runs the calculation-layer tests against fixtures in `tests/testthat/fixtures/`.
 
 ## License
 

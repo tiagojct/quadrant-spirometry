@@ -1,6 +1,6 @@
 # Quadrant
 
-R Shiny app for spirometry reference value calculation and interpretation. Compares GLI-2012 and GLI-Global 2022 reference equations side by side, classifies per ATS/ERS 2022 standards, and exports a structured report.
+R Shiny app for spirometry reference value calculation and interpretation. Compares modern (GLI-2012, GLI-Global 2022) and older (NHANES III) reference equations side by side, classifies per ATS/ERS 2022 standards, and exports a structured report. The side-by-side view lets the operator see how the classification of a single individual evolves across reference equation generations.
 
 Codename: quadrant, after Chapter 118 of Moby Dick. A quadrant is a navigational instrument that positions a measurement against an external reference. So does this app.
 
@@ -26,7 +26,11 @@ AGPL-3.0-or-later. A LICENSE file containing the standard AGPL-3.0 text lives at
 
 - R 4.4 or newer
 - Shiny 1.9 or newer, bslib for theming
-- rspiro 0.5 or newer for both GLI-2012 (pred_GLI, LLN_GLI, zscore_GLI) and GLI-Global 2022 race-neutral (pred_GLIgl, LLN_GLIgl, zscore_GLIgl). Reference: Bowerman et al., AJRCCM 2023, doi:10.1164/rccm.202205-0963OC.
+- rspiro 0.5 or newer for:
+  - GLI-2012: pred_GLI, LLN_GLI, zscore_GLI, pctpred_GLI. Reference: Quanjer et al., ERJ 2012, doi:10.1183/09031936.00080312.
+  - GLI-Global 2022 race-neutral: pred_GLIgl, LLN_GLIgl, zscore_GLIgl, pctpred_GLIgl. Reference: Bowerman et al., AJRCCM 2023, doi:10.1164/rccm.202205-0963OC.
+  - NHANES III: pred_NHANES3, LLN_NHANES3, zscore_NHANES3, pctpred_NHANES3. Reference: Hankinson et al., AJRCCM 1999, doi:10.1164/ajrccm.159.1.9712108.
+- ECSC 1993 (Quanjer) is not provided by rspiro 0.5. Tracked as a wishlist item; would require either an upstream rspiro contribution or a separately vetted implementation. Not in v1 scope.
 - Reports: quarto
 - Tests: testthat for calculation logic; shinytest2 only if a specific UI bug requires it
 - Reproducibility: renv
@@ -46,6 +50,7 @@ quadrant/
 ├── R/
 │   ├── gli_2012.R
 │   ├── gli_2022.R
+│   ├── nhanes3.R
 │   ├── interpretation.R
 │   ├── report.R
 │   ├── constants.R
@@ -62,7 +67,7 @@ quadrant/
 
 - tidyverse style, snake_case throughout
 - Pure functions for all calculation logic. No Shiny session state inside R/ files.
-- Every reference equation wrapper takes named arguments and returns a tibble with columns: predicted, lln, uln, z_score, percent_predicted.
+- Every reference equation wrapper takes named arguments and returns a base R data.frame in long form with columns: parameter, observed, predicted, lln, z_score, percent_predicted. One row per spirometry parameter (FEV1, FVC, FEV1FVC). Rationale for base data.frame: rspiro itself returns base data.frames; introducing tibble would be a new dependency without practical gain.
 - No magic numbers in code. Constants live in R/constants.R; lookup tables in data/.
 - Comments in English. User-facing text in English at first; Portuguese later via shiny.i18n.
 - Function headers in roxygen2 style even though this is not a package.
@@ -79,8 +84,8 @@ quadrant/
 
 Every reference equation wrapper must:
 
-- Reproduce at least 5 reference cases per equation family from official GLI documentation, stored under tests/testthat/fixtures/
-- Match the official GLI calculator output to within 0.01 for predicted, LLN, ULN, and z-score
+- Reproduce at least 5 reference cases per equation family, stored under tests/testthat/fixtures/. For GLI families, cases must trace to official GLI documentation. For NHANES III, cases trace to Hankinson et al. 1999 (doi:10.1164/ajrccm.159.1.9712108) or the GLI documentation comparison tables.
+- Match the official calculator output to within 0.01 for predicted, LLN, and z-score. The 5-case fixture is the wrapper contract layer; an end-to-end cross-check against the official upstream calculator is a manual gate the maintainer signs off on before each phase is marked accepted.
 - Fail loudly with informative messages when inputs fall outside supported age, height, or ethnicity ranges
 
 ## What NOT to do
@@ -98,3 +103,6 @@ Every reference equation wrapper must:
 Append-only. Date format YYYY-MM-DD. New entries at the bottom.
 
 - 2026-05-21: Project initialised. Codename: quadrant. License: AGPL-3.0-or-later. Stack chosen: R Shiny, bslib, rspiro >= 0.5, quarto, renv. rspiro confirmed to support both GLI-2012 and GLI-Global 2022 natively, removing the need for hand-implemented coefficients.
+- 2026-05-22: Phase 1 scope amended. NHANES III added alongside GLI-2012 so the side-by-side comparison can show the evolution of normality classification from a pre-GLI to a modern reference equation. ECSC 1993 considered and rejected for v1: not provided by rspiro 0.5, and hand-implementing coefficients would violate the no-hand-implementation rule. Tracked as a wishlist item.
+- 2026-05-22: Wrapper return type changed from tibble to base R data.frame in long form (one row per parameter). Reason: rspiro itself returns base data.frames, and adopting tibble would introduce a new dependency without practical gain.
+- 2026-05-22: ULN column removed from the wrapper contract. The GLI 2012 paper does not define an upper limit of normal; reporting it would require either an unblessed symmetric mirror of LLN or a redefinition. Z-score remains as the directional indicator and is sufficient for the ATS/ERS 2022 interpretation rules in Phase 3.

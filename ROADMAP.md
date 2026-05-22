@@ -11,12 +11,16 @@ Each phase is roughly one weekend of focused work. Do not start a new phase befo
 - README.md and .gitignore
 - First commit, push to GitHub
 
-## Phase 1: GLI-2012 manual entry
+## Phase 1: GLI-2012 manual entry, with NHANES III as the historic comparator
 
 - Input form: age, sex, height in cm, ethnicity, FEV1, FVC
-- Compute predicted, LLN, ULN, z-score, percent of predicted for FEV1, FVC, and FEV1/FVC using rspiro (pred_GLI, LLN_GLI, zscore_GLI)
-- Display a single results table
-- Tests: 5 reference cases from GLI documentation, passing within 0.01 tolerance
+- Compute predicted, LLN, z-score, percent of predicted for FEV1, FVC, and FEV1/FVC using rspiro for two reference families:
+  - GLI-2012 (pred_GLI, LLN_GLI, zscore_GLI, pctpred_GLI)
+  - NHANES III, 1999 (pred_NHANES3, LLN_NHANES3, zscore_NHANES3, pctpred_NHANES3)
+- Display the two result sets side by side so the operator can see how the classification of the same individual shifts between a 1999 and a 2012 reference equation
+- Ethnicity dropdown is reference-equation-aware: GLI accepts 5 categories, NHANES III accepts 3. UI surfaces both with a short note when an exact match is unavailable
+- Tests: 5 reference cases per family, stored under tests/testthat/fixtures/, passing within 0.01 tolerance. Cases trace to the published reference papers (Quanjer 2012 for GLI, Hankinson 1999 for NHANES III)
+- Wishlist (not in this phase): ECSC 1993 (Quanjer) as a second historic comparator. Not provided by rspiro 0.5. Tracked separately
 
 ## Phase 2: GLI-Global 2022
 
