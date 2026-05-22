@@ -38,18 +38,54 @@ subject_input_card <- function() {
 
 #' Card displaying one reference family's results in a tabular form.
 #'
-#' The card is populated by a Shiny output element identified by
-#' \code{output_id}. The renderer in app.R produces an HTML table from
-#' the long-form data.frame returned by the wrappers.
+#' The card is populated by two Shiny output elements: a results table
+#' (\code{output_id}) and a short interpretation block underneath
+#' (\code{interpretation_output_id}) that surfaces the ATS/ERS 2022
+#' pattern and severity grade. The renderers live in this file and are
+#' wired from app.R.
 #' @keywords internal
-results_card <- function(title, subtitle, output_id) {
+results_card <- function(title, subtitle, output_id, interpretation_output_id) {
   bslib::card(
     bslib::card_header(title),
     bslib::card_body(
       shiny::tags$p(subtitle, class = "text-muted small mb-2"),
-      shiny::uiOutput(output_id)
+      shiny::uiOutput(output_id),
+      shiny::tags$hr(class = "my-2"),
+      shiny::uiOutput(interpretation_output_id)
     )
   )
+}
+
+#' Render the per-family interpretation block.
+#'
+#' Displays the ATS/ERS 2022 pattern label and, where applicable, the
+#' severity grade by FEV1 z-score. Wording stays cautious: there is no
+#' diagnostic language, and patterns that require static lung volumes
+#' to confirm are flagged as suggestive in the label itself.
+#' @keywords internal
+render_interpretation <- function(interpretation) {
+  if (is.null(interpretation)) {
+    return(shiny::tags$em("Enter values to interpret."))
+  }
+  pattern_line <- shiny::tags$p(
+    shiny::tags$span("Pattern: ", class = "text-muted small"),
+    shiny::tags$span(interpretation$pattern),
+    class = "mb-1"
+  )
+  severity_line <- if (is.na(interpretation$severity)) {
+    shiny::tags$p(
+      shiny::tags$span("Severity: ", class = "text-muted small"),
+      shiny::tags$span("not graded (pattern is normal)"),
+      class = "mb-0"
+    )
+  } else {
+    shiny::tags$p(
+      shiny::tags$span("Severity (by FEV1 z-score): ", class = "text-muted small"),
+      shiny::tags$span(interpretation$severity),
+      class = "mb-0"
+    )
+  }
+  shiny::div(pattern_line, severity_line)
 }
 
 #' Render a long-form reference result data.frame as an HTML table.

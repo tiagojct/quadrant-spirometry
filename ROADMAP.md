@@ -32,10 +32,10 @@ Each phase is roughly one weekend of focused work. Do not start a new phase befo
 
 ## Phase 3: ATS/ERS 2022 interpretation
 
-- Pattern classification: normal, obstructive, restrictive pattern, mixed, non-specific
-- Severity grading by z-score: mild, moderate, moderately severe, severe, very severe
-- Pure functions in R/interpretation.R, fully unit tested
-- UI consumes these functions; no interpretation logic in the server
+- Pattern classification: normal, obstructive, restrictive pattern (suggestive), mixed pattern (suggestive), non-specific. Source: Stanojevic et al., ERJ 2022, doi:10.1183/13993003.01499-2021. Boundary at z = -1.645 is inclusive of normal.
+- Severity grading by FEV1 z-score: mild, moderate, moderately severe, severe, very severe, using the five-band table reproduced from the same statement.
+- Pure functions in R/interpretation.R: classify_pattern, grade_severity, interpret_spirometry. Fully unit tested across every branch and the LLN boundary.
+- UI consumes these functions only. The server passes the wrapper output to interpret_spirometry; no interpretation logic lives in the server itself. Each per-family results card carries its own interpretation block.
 
 ## Phase 4: Report export
 

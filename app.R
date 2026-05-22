@@ -9,6 +9,7 @@ source("R/wrapper_helpers.R")
 source("R/gli_2012.R")
 source("R/gli_2022.R")
 source("R/nhanes3.R")
+source("R/interpretation.R")
 source("R/ui_components.R")
 
 ui <- page_sidebar(
@@ -24,17 +25,20 @@ ui <- page_sidebar(
     results_card(
       title    = "GLI-2012",
       subtitle = "Quanjer et al., ERJ 2012",
-      output_id = "results_gli_2012"
+      output_id = "results_gli_2012",
+      interpretation_output_id = "interpretation_gli_2012"
     ),
     results_card(
       title    = "GLI-Global 2022 (race-neutral)",
       subtitle = "Bowerman et al., AJRCCM 2023",
-      output_id = "results_gli_2022"
+      output_id = "results_gli_2022",
+      interpretation_output_id = "interpretation_gli_2022"
     ),
     results_card(
       title    = "NHANES III",
       subtitle = "Hankinson et al., AJRCCM 1999",
-      output_id = "results_nhanes3"
+      output_id = "results_nhanes3",
+      interpretation_output_id = "interpretation_nhanes3"
     )
   ),
   gli_comparison_panel(),
@@ -113,6 +117,20 @@ server <- function(input, output, session) {
     )
   })
 
+  interpretation_for <- function(reactive_df) {
+    df <- reactive_df()
+    if (is.null(df)) return(NULL)
+    tryCatch(interpret_spirometry(df),
+             error = function(e) {
+               message("Interpretation error: ", conditionMessage(e))
+               NULL
+             })
+  }
+
+  interpretation_gli_2012 <- reactive({ interpretation_for(results_gli_2012) })
+  interpretation_gli_2022 <- reactive({ interpretation_for(results_gli_2022) })
+  interpretation_nhanes3  <- reactive({ interpretation_for(results_nhanes)  })
+
   output$results_gli_2012 <- renderUI({
     render_reference_table(results_gli_2012())
   })
@@ -122,6 +140,17 @@ server <- function(input, output, session) {
   output$results_nhanes3 <- renderUI({
     render_reference_table(results_nhanes())
   })
+
+  output$interpretation_gli_2012 <- renderUI({
+    render_interpretation(interpretation_gli_2012())
+  })
+  output$interpretation_gli_2022 <- renderUI({
+    render_interpretation(interpretation_gli_2022())
+  })
+  output$interpretation_nhanes3 <- renderUI({
+    render_interpretation(interpretation_nhanes3())
+  })
+
   output$gli_comparison_text <- renderUI({
     render_gli_comparison(results_gli_2012(), results_gli_2022())
   })
