@@ -10,6 +10,7 @@ source("R/gli_2012.R")
 source("R/gli_2022.R")
 source("R/nhanes3.R")
 source("R/interpretation.R")
+source("R/visuals.R")
 source("R/ui_components.R")
 
 ui <- page_sidebar(
@@ -20,28 +21,31 @@ ui <- page_sidebar(
     width = 320,
     subject_input_card()
   ),
+  gli_comparison_panel(),
   layout_columns(
     col_widths = c(4, 4, 4),
     results_card(
       title    = "GLI-2012",
       subtitle = "Quanjer et al., ERJ 2012",
+      badge_output_id = "badge_gli_2012",
       output_id = "results_gli_2012",
       interpretation_output_id = "interpretation_gli_2012"
     ),
     results_card(
       title    = "GLI-Global 2022 (race-neutral)",
       subtitle = "Bowerman et al., AJRCCM 2023",
+      badge_output_id = "badge_gli_2022",
       output_id = "results_gli_2022",
       interpretation_output_id = "interpretation_gli_2022"
     ),
     results_card(
       title    = "NHANES III",
       subtitle = "Hankinson et al., AJRCCM 1999",
+      badge_output_id = "badge_nhanes3",
       output_id = "results_nhanes3",
       interpretation_output_id = "interpretation_nhanes3"
     )
   ),
-  gli_comparison_panel(),
   tags$footer(
     class = "border-top mt-3 pt-2 text-muted small",
     DISCLAIMER_TEXT
@@ -151,6 +155,23 @@ server <- function(input, output, session) {
     render_interpretation(interpretation_nhanes3())
   })
 
+  output$badge_gli_2012 <- renderUI({
+    render_pattern_badge(interpretation_gli_2012())
+  })
+  output$badge_gli_2022 <- renderUI({
+    render_pattern_badge(interpretation_gli_2022())
+  })
+  output$badge_nhanes3 <- renderUI({
+    render_pattern_badge(interpretation_nhanes3())
+  })
+
+  output$comparison_chart <- renderUI({
+    shiny::HTML(cross_family_chart_svg(list(
+      "GLI-2012"        = results_gli_2012(),
+      "GLI-Global 2022" = results_gli_2022(),
+      "NHANES III"      = results_nhanes()
+    )))
+  })
   output$gli_comparison_text <- renderUI({
     render_gli_comparison(results_gli_2012(), results_gli_2022())
   })

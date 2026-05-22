@@ -36,23 +36,77 @@ subject_input_card <- function() {
   )
 }
 
-#' Card displaying one reference family's results in a tabular form.
+#' Card displaying one reference family's results.
 #'
-#' The card is populated by two Shiny output elements: a results table
-#' (\code{output_id}) and a short interpretation block underneath
-#' (\code{interpretation_output_id}) that surfaces the ATS/ERS 2022
-#' pattern and severity grade. The renderers live in this file and are
-#' wired from app.R.
+#' The card is populated by three Shiny output elements: a coloured
+#' classification badge (\code{badge_output_id}) that surfaces the
+#' ATS/ERS 2022 pattern and severity grade at a glance, the results
+#' table (\code{output_id}), and the full interpretation block
+#' (\code{interpretation_output_id}). The per-family mini-gauge that
+#' lived here previously was retired: the hero cross-family chart at
+#' the top of the page already shows the same z-scores in higher
+#' detail, and the duplication was crowding the card.
 #' @keywords internal
-results_card <- function(title, subtitle, output_id, interpretation_output_id) {
+results_card <- function(title, subtitle, badge_output_id, output_id,
+                         interpretation_output_id) {
   bslib::card(
     bslib::card_header(title),
     bslib::card_body(
-      shiny::tags$p(subtitle, class = "text-muted small mb-2"),
+      shiny::tags$p(subtitle, class = "text-muted small mb-1"),
+      shiny::uiOutput(badge_output_id),
       shiny::uiOutput(output_id),
       shiny::tags$hr(class = "my-2"),
       shiny::uiOutput(interpretation_output_id)
     )
+  )
+}
+
+#' Render the classification badge for one reference family.
+#'
+#' Produces a coloured pill that displays the ATS/ERS 2022 pattern,
+#' and, when impairment is present, the severity grade. The pill
+#' background colour matches the severity band the FEV1 z-score sits
+#' in; a normal pattern uses the same green as the normal band on the
+#' chart. Visual emphasis only, no diagnostic semantics.
+#' @keywords internal
+render_pattern_badge <- function(interpretation) {
+  if (is.null(interpretation)) {
+    return(shiny::tags$em("Enter values to classify."))
+  }
+  severity <- interpretation$severity
+  pattern  <- interpretation$pattern
+
+  palette <- list(
+    normal              = list(bg = "#86efac", fg = "#0f172a"),
+    mild                = list(bg = "#facc15", fg = "#0f172a"),
+    moderate            = list(bg = "#f59e0b", fg = "#0f172a"),
+    `moderately severe` = list(bg = "#ea580c", fg = "#ffffff"),
+    severe              = list(bg = "#dc2626", fg = "#ffffff"),
+    `very severe`       = list(bg = "#b91c1c", fg = "#ffffff")
+  )
+  key <- if (is.na(severity)) "normal" else severity
+  colours <- palette[[key]]
+  if (is.null(colours)) colours <- list(bg = "#94a3b8", fg = "#0f172a")
+
+  label <- if (is.na(severity)) {
+    toupper(pattern)
+  } else {
+    sprintf("%s · %s", toupper(pattern), severity)
+  }
+
+  shiny::tags$div(
+    style = paste(
+      "background:", colours$bg, ";",
+      "color:", colours$fg, ";",
+      "border-radius: 9999px;",
+      "padding: 6px 14px;",
+      "display: inline-block;",
+      "font-weight: 700;",
+      "font-size: 0.95rem;",
+      "letter-spacing: 0.02em;",
+      "margin: 6px 0 10px 0;"
+    ),
+    label
   )
 }
 
@@ -122,27 +176,27 @@ render_reference_table <- function(reference_df) {
   )
 }
 
-#' Comparison panel between GLI-2012 and GLI-Global 2022.
-#'
-#' Highlights any spirometry parameter where the classification of
-#' normality (above or below LLN at z = -1.645) differs between the two
-#' equation families. Cases where both equations agree are listed
-#' compactly. Cases of disagreement are surfaced as the primary
-#' message, since they are the clinically interesting ones. No
-#' interpretation language is used; the panel describes the difference
-#' in z-scores and lets the reader draw the comparison.
+#' Comparison panel showing all three reference families on a shared
+#' z-axis, plus a brief text note when GLI-2012 and GLI-Global 2022
+#' disagree on the above or below LLN classification.
 #' @keywords internal
-gli_comparison_panel <- function(gli_2012_df, gli_2022_df) {
+gli_comparison_panel <- function() {
   bslib::card(
-    bslib::card_header("GLI-2012 vs GLI-Global 2022"),
+    bslib::card_header("Cross-family z-score comparison"),
     bslib::card_body(
+      shiny::uiOutput("comparison_chart"),
+      shiny::tags$hr(class = "my-2"),
       shiny::uiOutput("gli_comparison_text")
     )
   )
 }
 
-#' Render the body of the GLI-2012 vs GLI-Global 2022 comparison panel.
+#' Render the body of the GLI-2012 vs GLI-Global 2022 text note.
 #'
+#' Highlights any spirometry parameter where the above or below LLN
+#' classification differs between the two GLI families. The chart
+#' above already conveys the magnitudes; this note exists to surface
+#' the categorical flip in words.
 #' @keywords internal
 render_gli_comparison <- function(gli_2012_df, gli_2022_df) {
   if (is.null(gli_2012_df) || is.null(gli_2022_df)) {
@@ -156,7 +210,7 @@ render_gli_comparison <- function(gli_2012_df, gli_2022_df) {
   if (!any(flipped)) {
     return(shiny::div(
       shiny::tags$p(
-        "Both equations classify every parameter on the same side of the lower limit of normal."
+        "GLI-2012 and GLI-Global 2022 classify every parameter on the same side of the lower limit of normal."
       ),
       shiny::tags$p(class = "text-muted small",
                     "Differences in z-score remain, even when classification agrees.")

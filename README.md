@@ -18,7 +18,11 @@ The app accepts age, sex, height in centimetres, ethnicity (with separate dropdo
 - GLI-Global 2022 race-neutral (Bowerman et al., AJRCCM 2023)
 - NHANES III (Hankinson et al., AJRCCM 1999)
 
-Each results panel carries an interpretation block under the table, using the ATS/ERS 2022 interpretive strategy (Stanojevic et al., ERJ 2022). Patterns are labelled normal, obstructive, restrictive pattern (suggestive), mixed pattern (suggestive), or non-specific. Restrictive and mixed labels are explicitly marked as suggestive because confirming them requires static lung volumes that Quadrant does not accept. Severity is graded by FEV1 z-score in five bands when impairment is present, and reported as "not graded (pattern is normal)" otherwise. A comparison panel below the cards flags any parameter where the above or below LLN classification disagrees between GLI-2012 and GLI-Global 2022.
+Each results panel carries an interpretation block under the table, using the ATS/ERS 2022 interpretive strategy (Stanojevic et al., ERJ 2022). Patterns are labelled normal, obstructive, restrictive pattern (suggestive), mixed pattern (suggestive), or non-specific. Restrictive and mixed labels are explicitly marked as suggestive because confirming them requires static lung volumes that Quadrant does not accept. Severity is graded by FEV1 z-score in five bands when impairment is present, and reported as "not graded (pattern is normal)" otherwise.
+
+A cross-family comparison chart sits at the top of the page as the hero visual. It shows all three reference families on a common z-axis, one row per parameter, with a horizontal legend strip naming the severity bands and a dashed line at the lower limit of normal. A short text note beneath the chart flags any parameter where GLI-2012 and GLI-Global 2022 disagree on the above or below LLN classification.
+
+Each per-family card below carries a coloured classification badge at the top, labelled with the ATS/ERS 2022 pattern and severity grade (for example, OBSTRUCTIVE · severe on a red pill, NORMAL on a green pill). The pill colour matches the severity band the FEV1 z-score sits in. Visual emphasis only, no diagnostic semantics.
 
 PDF export arrives in Phase 4. Subsequent phases are described in ROADMAP.md.
 
