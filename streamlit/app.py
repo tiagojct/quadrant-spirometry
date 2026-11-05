@@ -29,6 +29,7 @@ from quadrant.fragments import (
     AGREE_TEXT,
     BELOW_LLN_NOTE,
     badge_colour,
+    classification_summary,
     comparison_notes,
     input_problem,
     pattern_label,
@@ -169,7 +170,9 @@ with st.sidebar:
     )
     st.caption("For a PDF, use the browser's Print menu on the downloaded file.")
 
-# Main page.
+# Main page. Numbers in tables line up in columns.
+st.html("<style>td, th { font-variant-numeric: tabular-nums; }</style>")
+
 st.title("Quadrant", icon=":material/explore:")
 st.caption(
     "Spirometry reference values for one subject, compared across three "
@@ -179,8 +182,34 @@ st.caption(
 if problem:
     st.warning(problem, icon=":material/warning:")
 
+CARDS = (
+    ("gli_2012", "GLI-2012", "Quanjer et al., ERJ 2012"),
+    ("gli_2022", "GLI-Global 2022", "Race-neutral. Bowerman et al., AJRCCM 2023"),
+    ("nhanes3", "NHANES III", "Hankinson et al., AJRCCM 1999"),
+)
+
+# 1. The answer first: what each equation says, and whether they agree.
+st.subheader("Classification")
+for column, (key, title, _) in zip(st.columns(3), CARDS):
+    with column:
+        st.markdown(title)
+        if messages[key] is not None:
+            st.badge("Not available", icon=":material/block:", color="gray", width="stretch")
+        elif results[key] is None:
+            st.caption("Enter values to classify.")
+        else:
+            st.badge(
+                pattern_label(interpretations[key]),
+                color=badge_colour(interpretations[key]),
+                width="stretch",
+            )
+summary = classification_summary(interpretations)
+if summary:
+    st.markdown(summary)
+
+# 2. Where each value sits against the references.
 with st.container(border=True):
-    st.subheader("Cross-family z-score comparison", icon=":material/query_stats:")
+    st.subheader("Z-scores by equation")
     if screen_chart is not None:
         st.altair_chart(screen_chart, width="stretch", alt=CHART_ALT)
     else:
@@ -189,20 +218,16 @@ with st.container(border=True):
     if notes is None:
         st.caption("Enter values to compare equations.")
     elif not notes:
-        st.markdown(AGREE_TEXT)
-        st.caption(AGREE_NOTE)
+        st.caption(f"{AGREE_TEXT} {AGREE_NOTE}")
     else:
-        st.markdown("Classification differs for:")
+        st.markdown("Classification differs between the GLI equations for:")
         st.markdown("\n".join(f"- {note}" for note in notes))
 
-CARDS = (
-    ("gli_2012", "GLI-2012", "Quanjer et al., ERJ 2012"),
-    ("gli_2022", "GLI-Global 2022", "Race-neutral. Bowerman et al., AJRCCM 2023"),
-    ("nhanes3", "NHANES III", "Hankinson et al., AJRCCM 1999"),
-)
+# 3. The numbers behind it.
+st.subheader("Reference values")
 for column, (key, title, subtitle) in zip(st.columns(3), CARDS):
     with column, st.container(border=True):
-        st.subheader(title)
+        st.markdown(title)
         st.caption(subtitle)
         if messages[key] is not None:
             st.warning(
@@ -213,26 +238,13 @@ for column, (key, title, subtitle) in zip(st.columns(3), CARDS):
         elif results[key] is None:
             st.caption("Enter values to compute results.")
         else:
-            interpretation = interpretations[key]
-            st.badge(
-                pattern_label(interpretation),
-                color=badge_colour(interpretation),
-                width="stretch",
-            )
             st.table(
                 results_for_display(results[key]),
                 hide_index=True,
                 alt=f"{title} reference values for FEV1, FVC and FEV1/FVC.",
             )
-            if (results[key]["z_score"] < LLN_Z).any():
-                st.caption(BELOW_LLN_NOTE)
-            severity = interpretation["severity"]
-            st.markdown(f"Pattern: {interpretation['pattern']}")
-            st.markdown(
-                "Severity: not graded (pattern is normal)"
-                if severity is None
-                else f"Severity (by FEV1 z-score): {severity}"
-            )
+if any(table is not None and (table["z_score"] < LLN_Z).any() for table in results.values()):
+    st.caption(BELOW_LLN_NOTE)
 
 with st.expander("How to read this page", icon=":material/info:"):
     st.markdown(

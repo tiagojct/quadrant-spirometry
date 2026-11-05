@@ -203,3 +203,36 @@ def render_gli_comparison(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.Data
         )
     items = "".join(f"<li>{escape(note)}</li>" for note in notes)
     return f"<div><p>Classification differs for:</p><ul>{items}</ul></div>"
+
+
+FAMILY_NAMES = {
+    "gli_2012": "GLI-2012",
+    "gli_2022": "GLI-Global 2022",
+    "nhanes3": "NHANES III",
+}
+
+
+def short_label(interpretation: dict) -> str:
+    """Short classification such as "obstructive \u00b7 moderate" or "normal"."""
+    severity = interpretation["severity"]
+    pattern = interpretation["pattern"]
+    return pattern if severity is None else f"{pattern} \u00b7 {severity}"
+
+
+def classification_summary(interpretations: dict) -> str | None:
+    """One sentence on whether the equations give the same classification.
+
+    Returns None when fewer than two equations have a result. When the
+    equations differ, the sentence names each one.
+    """
+    available = {
+        FAMILY_NAMES[key]: value
+        for key, value in interpretations.items()
+        if value is not None
+    }
+    if len(available) < 2:
+        return None
+    if len({short_label(v) for v in available.values()}) == 1:
+        return "The equations agree on the classification."
+    detail = "; ".join(f"{name}: {short_label(v)}" for name, v in available.items())
+    return f"The equations differ in classification. {detail}."

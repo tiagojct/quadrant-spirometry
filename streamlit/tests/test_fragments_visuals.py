@@ -5,6 +5,7 @@ import pandas as pd
 from quadrant.constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN
 from quadrant.fragments import (
     badge_colour,
+    classification_summary,
     comparison_notes,
     input_problem,
     pattern_label,
@@ -137,3 +138,23 @@ def test_chart_skips_families_without_results():
 def test_chart_returns_a_prompt_without_results():
     out = cross_family_chart_svg({"GLI-2012": None, "NHANES III": None})
     assert "Enter values" in out and not is_svg(out)
+
+
+def _interp(pattern, severity=None):
+    return {"pattern": pattern, "severity": severity}
+
+
+def test_classification_summary_agree_differ_and_missing():
+    same = {"gli_2012": _interp("normal"), "gli_2022": _interp("normal"), "nhanes3": _interp("normal")}
+    assert classification_summary(same) == "The equations agree on the classification."
+    two = {"gli_2012": _interp("normal"), "gli_2022": _interp("normal"), "nhanes3": None}
+    assert classification_summary(two) == "The equations agree on the classification."
+    differ = {
+        "gli_2012": _interp("obstructive", "severe"),
+        "gli_2022": _interp("obstructive", "moderate"),
+        "nhanes3": _interp("obstructive", "severe"),
+    }
+    text = classification_summary(differ)
+    assert text.startswith("The equations differ in classification.")
+    assert "GLI-Global 2022: obstructive \u00b7 moderate" in text
+    assert classification_summary({"gli_2012": _interp("normal"), "gli_2022": None, "nhanes3": None}) is None

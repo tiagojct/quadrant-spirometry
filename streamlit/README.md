@@ -37,8 +37,8 @@ The equations come from the `pyspiro` package (MIT licence): GLI-2012, GLI-Globa
 
 ## Design
 
-- Colours, fonts and corner radius are set in `.streamlit/config.toml`, with a light and a dark theme. The app uses no custom CSS on screen.
-- The page uses native Streamlit elements: a sidebar for the inputs, bordered containers for the chart and the three equation cards, `st.badge` for the pattern, `st.table` for the values and `st.warning` for problems.
+- Colours, fonts and corner radius are set in `.streamlit/config.toml`, with a light theme (chart paper and ink blue) and a dark theme (night blue and brass). The only CSS is one rule that gives table numbers equal-width digits.
+- The page reads top down: the classification of each equation and whether they agree, then the z-score chart, then the reference values. It uses native Streamlit elements: a sidebar for the inputs, `st.badge` for the pattern, `st.table` for the values and `st.warning` for problems.
 - The comparison chart is an Altair chart (`quadrant/charts.py`) that follows the light and dark theme. Markers differ in colour and shape, bands show the severity levels, a dashed line marks the lower limit of normal, and a tooltip gives the observed, predicted and lower-limit values. A z-score beyond the axis sits just inside the edge, and its label and tooltip keep the real value.
 - The app turns off Streamlit usage analytics (`gatherUsageStats = false`).
 - The exported report keeps its own HTML, CSS and static SVG chart (`quadrant/visuals.py`), because it must work as a file outside Streamlit.

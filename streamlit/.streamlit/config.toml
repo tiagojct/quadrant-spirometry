@@ -1,4 +1,5 @@
 # Quadrant theme. Colours and fonts live here, not in CSS.
+# Light: chart paper and ink. Dark: night watch with brass.
 # License: AGPL-3.0-or-later
 
 [browser]
@@ -8,21 +9,21 @@ gatherUsageStats = false
 [theme]
 font = "sans-serif"
 headingFont = "sans-serif"
-baseRadius = "0.5rem"
+baseRadius = "0.4rem"
 showWidgetBorder = true
 
 [theme.light]
-primaryColor = "#1e3a8a"
-linkColor = "#1e3a8a"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f1f5f9"
-textColor = "#0f172a"
-borderColor = "#cbd5e1"
+primaryColor = "#1c3557"
+linkColor = "#1c3557"
+backgroundColor = "#fbf9f4"
+secondaryBackgroundColor = "#f1ede3"
+textColor = "#1a2233"
+borderColor = "#d9d2c0"
 
 [theme.dark]
-primaryColor = "#93b4ff"
-linkColor = "#93b4ff"
-backgroundColor = "#0b1220"
-secondaryBackgroundColor = "#162033"
-textColor = "#e2e8f0"
-borderColor = "#334155"
+primaryColor = "#d9b56a"
+linkColor = "#d9b56a"
+backgroundColor = "#0d1522"
+secondaryBackgroundColor = "#16213a"
+textColor = "#ece7da"
+borderColor = "#2c3a57"
