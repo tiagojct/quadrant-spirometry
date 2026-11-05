@@ -4,11 +4,14 @@ import pandas as pd
 
 from quadrant.constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN
 from quadrant.fragments import (
-    input_notice,
+    badge_colour,
+    comparison_notes,
+    input_problem,
+    pattern_label,
     render_gli_comparison,
     render_interpretation,
     render_pattern_badge,
-    render_reference_table,
+    results_for_display,
 )
 from quadrant.visuals import (
     FAMILY_COLOURS,
@@ -34,31 +37,44 @@ def _table(z):
     )
 
 
-def test_input_notice_is_silent_for_usable_or_missing_values():
-    assert input_notice(3.0, 4.0) is None
-    assert input_notice(4.0, 4.0) is None
-    assert input_notice(None, 4.0) is None
-    assert input_notice(3.0, float("nan")) is None
+def test_input_problem_is_silent_for_usable_or_missing_values():
+    assert input_problem(3.0, 4.0) is None
+    assert input_problem(4.0, 4.0) is None
+    assert input_problem(None, 4.0) is None
+    assert input_problem(3.0, float("nan")) is None
 
 
-def test_input_notice_explains_unusable_values():
-    assert "FEV1 is larger than FVC" in input_notice(5.0, 4.0)
-    assert "greater than zero" in input_notice(0, 4.0)
-    assert "greater than zero" in input_notice(3.0, -1)
+def test_input_problem_explains_unusable_values():
+    assert "FEV1 is larger than FVC" in input_problem(5.0, 4.0)
+    assert "greater than zero" in input_problem(0, 4.0)
+    assert "greater than zero" in input_problem(3.0, -1)
 
 
-def test_reference_table_shows_the_message_instead_of_a_table():
-    html = render_reference_table(None, "age_years must be between 8 and 80 years.")
-    assert "Not available for these inputs" in html and "<table" not in html
+def test_results_for_display_marks_values_below_the_lln():
+    frame = results_for_display(_table([-2.0, 0.0, -1.645]))
+    assert list(frame.columns) == ["Parameter", "Pred.", "LLN", "Z-score", "% pred"]
+    assert list(frame["Z-score"]) == ["-2.00 *", "0.00", "-1.65"]
+    assert list(frame["% pred"]) == ["85.0", "90.0", "94.0"]
 
 
-def test_reference_table_escapes_the_message():
-    assert "<script>" not in render_reference_table(None, "<script>x</script>")
+def test_pattern_label_is_descriptive():
+    assert pattern_label({"pattern": "normal", "severity": None}) == "Pattern consistent with normal"
+    assert pattern_label({"pattern": "obstructive", "severity": "severe"}) == (
+        "Pattern consistent with obstructive \u00b7 severe")
+    assert pattern_label({"pattern": "mixed pattern (suggestive)", "severity": "moderate"}) == (
+        "Consistent with mixed pattern (suggestive) \u00b7 moderate")
 
 
-def test_reference_table_flags_values_below_lln():
-    html = render_reference_table(_table([-2.0, 0.0, 0.0]))
-    assert "FEV1 (below LLN)" in html and "FVC (below LLN)" not in html
+def test_badge_colour_follows_severity():
+    colours = [badge_colour({"pattern": "x", "severity": s}) for s in (None, "mild", "moderate", "severe")]
+    assert colours == ["green", "yellow", "orange", "red"]
+
+
+def test_comparison_notes_cover_missing_agreeing_and_flipped_tables():
+    assert comparison_notes(None, _table([0, 0, 0])) is None
+    assert comparison_notes(_table([0, 0, 0]), _table([0, 0, 0])) == []
+    notes = comparison_notes(_table([-1.0, 0, 0]), _table([-2.0, 0, 0]))
+    assert len(notes) == 1 and notes[0].startswith("FEV1: GLI-2012 z = -1.00 (within LLN)")
 
 
 def test_badge_wording_is_descriptive():

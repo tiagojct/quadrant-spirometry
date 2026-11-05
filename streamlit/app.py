@@ -5,6 +5,7 @@ License: AGPL-3.0-or-later
 Run with: uv run streamlit run app.py
 
 The app keeps no state between sessions and writes nothing to disk.
+Colours and fonts come from .streamlit/config.toml.
 """
 
 from __future__ import annotations
@@ -18,24 +19,37 @@ from quadrant.constants import (
     GLI_AGE_RANGE_YEARS,
     GLI_ETHNICITY,
     HEIGHT_RANGE_CM,
+    LLN_Z,
     NHANES3_ETHNICITY,
     SEX_CODES,
 )
 from quadrant.fragments import (
-    input_notice,
+    AGREE_NOTE,
+    AGREE_TEXT,
+    BELOW_LLN_NOTE,
+    badge_colour,
+    comparison_notes,
+    input_problem,
+    pattern_label,
     render_gli_comparison,
-    render_interpretation,
-    render_pattern_badge,
-    render_reference_table,
+    results_for_display,
 )
 from quadrant.interpretation import interpret_spirometry
 from quadrant.report import prepare_report_bundle, render_report_html
-from quadrant.styles import COMPONENT_CSS
 from quadrant.visuals import cross_family_chart_svg, is_svg
 from quadrant.wrappers import compute_gli_2012, compute_gli_global_2022, compute_nhanes3
 
-st.set_page_config(page_title="Quadrant", layout="wide")
-st.markdown(f"<style>{COMPONENT_CSS}</style>", unsafe_allow_html=True)
+st.set_page_config(
+    page_title="Quadrant",
+    page_icon=":material/explore:",
+    layout="wide",
+)
+
+CHART_ALT = (
+    "Chart of the FEV1, FVC and FEV1/FVC z-scores for each reference "
+    "equation family, on one axis with the lower limit of normal marked "
+    "at -1.645 and the severity bands shaded."
+)
 
 
 def compute_family(function, **kwargs):
@@ -48,33 +62,45 @@ def compute_family(function, **kwargs):
 
 # Sidebar inputs. Each widget has a key so that the tests can set it.
 with st.sidebar:
-    st.header("Inputs")
-    age_years = st.number_input(
+    st.subheader("Subject", icon=":material/person:")
+    age_col, height_col = st.columns(2)
+    age_years = age_col.number_input(
         "Age (years)", key="age_years", value=40.0,
         min_value=float(GLI_AGE_RANGE_YEARS[0]),
         max_value=float(GLI_AGE_RANGE_YEARS[1]), step=1.0,
+        help="GLI equations cover 3 to 95 years. NHANES III covers 8 to 80 years.",
     )
-    height_cm = st.number_input(
+    height_cm = height_col.number_input(
         "Height (cm)", key="height_cm", value=170.0,
         min_value=float(HEIGHT_RANGE_CM[0]),
         max_value=float(HEIGHT_RANGE_CM[1]), step=0.5,
     )
-    sex_label = st.selectbox("Sex", list(SEX_CODES), key="sex")
+    sex_label = st.segmented_control(
+        "Sex", list(SEX_CODES), default="Male", required=True,
+        key="sex", width="stretch",
+    )
     ethnicity_gli_label = st.selectbox(
         "Ethnicity (GLI-2012)", list(GLI_ETHNICITY), key="ethnicity_gli"
     )
     ethnicity_nhanes3_label = st.selectbox(
-        "Ethnicity (NHANES III)", list(NHANES3_ETHNICITY), key="ethnicity_nhanes3"
-    )
-    fev1 = st.number_input(
-        "Observed FEV1 (L)", key="fev1", value=3.20,
-        min_value=0.0, max_value=8.0, step=0.01, format="%.2f",
-    )
-    fvc = st.number_input(
-        "Observed FVC (L)", key="fvc", value=4.00,
-        min_value=0.0, max_value=10.0, step=0.01, format="%.2f",
+        "Ethnicity (NHANES III)", list(NHANES3_ETHNICITY), key="ethnicity_nhanes3",
+        help="NHANES III has three categories. GLI-Global 2022 has none.",
     )
 
+    st.subheader("Spirometry", icon=":material/air:")
+    fev1_col, fvc_col = st.columns(2)
+    fev1 = fev1_col.number_input(
+        "FEV1 (L)", key="fev1", value=3.20,
+        min_value=0.0, max_value=8.0, step=0.01, format="%.2f",
+    )
+    fvc = fvc_col.number_input(
+        "FVC (L)", key="fvc", value=4.00,
+        min_value=0.0, max_value=10.0, step=0.01, format="%.2f",
+    )
+    if fvc > 0:
+        st.caption(f"FEV1/FVC ratio: {fev1 / fvc:.2f}")
+
+problem = input_problem(fev1, fvc)
 inputs_ready = 0 < fev1 <= fvc
 sex_code = SEX_CODES[sex_label]
 
@@ -101,20 +127,19 @@ interpretations = {
     key: interpret_spirometry(table) if table is not None else None
     for key, table in results.items()
 }
+chart = cross_family_chart_svg(
+    {
+        "GLI-2012": results["gli_2012"],
+        "GLI-Global 2022": results["gli_2022"],
+        "NHANES III": results["nhanes3"],
+    }
+)
 
 # Report export, built in memory when the inputs are usable.
 with st.sidebar:
-    st.divider()
-    st.subheader("Report")
+    st.subheader("Report", icon=":material/description:")
     report_html = ""
     if inputs_ready:
-        chart_svg = cross_family_chart_svg(
-            {
-                "GLI-2012": results["gli_2012"],
-                "GLI-Global 2022": results["gli_2022"],
-                "NHANES III": results["nhanes3"],
-            }
-        )
         bundle = prepare_report_bundle(
             subject={
                 "age_years": age_years, "height_cm": height_cm,
@@ -125,7 +150,7 @@ with st.sidebar:
             },
             results=results,
             interpretations=interpretations,
-            chart_svg=chart_svg,
+            chart_svg=chart,
             comparison_html=render_gli_comparison(results["gli_2012"], results["gli_2022"]),
         )
         report_html = render_report_html(bundle)
@@ -134,32 +159,39 @@ with st.sidebar:
         data=report_html,
         file_name=f"quadrant-report-{datetime.now():%Y%m%d-%H%M%S}.html",
         mime="text/html",
+        icon=":material/download:",
+        type="primary",
         disabled=not inputs_ready,
-        use_container_width=True,
+        width="stretch",
     )
-    st.caption("PDF: use the browser's Print menu on the downloaded HTML.")
+    st.caption("For a PDF, use the browser's Print menu on the downloaded file.")
 
-st.title("Quadrant")
+# Main page.
+st.title("Quadrant", icon=":material/explore:")
+st.caption(
+    "Spirometry reference values for one subject, compared across three "
+    "equation families."
+)
 
-notice = input_notice(fev1, fvc)
-if notice:
-    st.html(notice)
+if problem:
+    st.warning(problem, icon=":material/warning:")
 
 with st.container(border=True):
-    st.subheader("Cross-family z-score comparison")
-    chart = cross_family_chart_svg(
-        {
-            "GLI-2012": results["gli_2012"],
-            "GLI-Global 2022": results["gli_2022"],
-            "NHANES III": results["nhanes3"],
-        }
-    )
+    st.subheader("Cross-family z-score comparison", icon=":material/query_stats:")
     if is_svg(chart):
         # st.html strips SVG, so the chart goes through st.image.
-        st.image(chart, use_container_width=True)
+        st.image(chart, width="stretch", alt=CHART_ALT)
     else:
-        st.html(chart)
-    st.html(render_gli_comparison(results["gli_2012"], results["gli_2022"]))
+        st.caption("Enter values to draw the comparison chart.")
+    notes = comparison_notes(results["gli_2012"], results["gli_2022"])
+    if notes is None:
+        st.caption("Enter values to compare equations.")
+    elif not notes:
+        st.markdown(AGREE_TEXT)
+        st.caption(AGREE_NOTE)
+    else:
+        st.markdown("Classification differs for:")
+        st.markdown("\n".join(f"- {note}" for note in notes))
 
 CARDS = (
     ("gli_2012", "GLI-2012", "Quanjer et al., ERJ 2012"),
@@ -169,13 +201,45 @@ CARDS = (
 for column, (key, title, subtitle) in zip(st.columns(3), CARDS):
     with column, st.container(border=True):
         st.subheader(title)
-        st.html(f'<p class="qd-muted">{subtitle}</p>')
-        if messages[key] is None:
-            st.html(render_pattern_badge(interpretations[key]))
-        st.html(render_reference_table(results[key], messages[key]))
-        if messages[key] is None:
-            st.divider()
-            st.html(render_interpretation(interpretations[key]))
+        st.caption(subtitle)
+        if messages[key] is not None:
+            st.warning(
+                messages[key],
+                title="Not available for these inputs",
+                icon=":material/block:",
+            )
+        elif results[key] is None:
+            st.caption("Enter values to compute results.")
+        else:
+            interpretation = interpretations[key]
+            st.badge(
+                pattern_label(interpretation),
+                color=badge_colour(interpretation),
+                width="stretch",
+            )
+            st.table(
+                results_for_display(results[key]),
+                hide_index=True,
+                alt=f"{title} reference values for FEV1, FVC and FEV1/FVC.",
+            )
+            if (results[key]["z_score"] < LLN_Z).any():
+                st.caption(BELOW_LLN_NOTE)
+            severity = interpretation["severity"]
+            st.markdown(f"Pattern: {interpretation['pattern']}")
+            st.markdown(
+                "Severity: not graded (pattern is normal)"
+                if severity is None
+                else f"Severity (by FEV1 z-score): {severity}"
+            )
 
-st.divider()
+with st.expander("How to read this page", icon=":material/info:"):
+    st.markdown(
+        "A z-score places the observed value against the reference equation. "
+        "The lower limit of normal (LLN) is a z-score of -1.645.\n\n"
+        "Severity uses the FEV1 z-score: mild from -2.5 upward, moderate from "
+        "-2.5 to -4.0, severe below -4.0.\n\n"
+        "Restrictive and mixed patterns are suggestive only. Confirming them "
+        "needs static lung volumes, which Quadrant does not accept."
+    )
+
 st.caption(DISCLAIMER_TEXT)

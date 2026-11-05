@@ -35,6 +35,14 @@ The equations come from the `pyspiro` package (MIT licence): GLI-2012, GLI-Globa
 - NHANES III height range: pyspiro enforces the sampled height range for each sex, ethnicity and age group. rspiro extrapolates outside it. The Python app shows a message instead of an extrapolated value.
 - Ages: 3 to 95 years for GLI-2012 and GLI-Global 2022, 8 to 80 years for NHANES III, as in the R app.
 
+## Design
+
+- Colours, fonts and corner radius are set in `.streamlit/config.toml`, with a light and a dark theme. The app uses no custom CSS on screen.
+- The page uses native Streamlit elements: a sidebar for the inputs, bordered containers for the chart and the three equation cards, `st.badge` for the pattern, `st.table` for the values and `st.warning` for problems.
+- The chart is the one exception. Streamlit has no native chart for this layout, so it is an SVG shown with `st.image`. Its white background keeps it readable on the dark theme.
+- The app turns off Streamlit usage analytics (`gatherUsageStats = false`).
+- The exported report keeps its own HTML and CSS, because it must work as a file outside Streamlit.
+
 ## Layout
 
 - `app.py`: the Streamlit page.

@@ -1,0 +1,28 @@
+# Quadrant theme. Colours and fonts live here, not in CSS.
+# License: AGPL-3.0-or-later
+
+[browser]
+# The app collects no analytics.
+gatherUsageStats = false
+
+[theme]
+font = "sans-serif"
+headingFont = "sans-serif"
+baseRadius = "0.5rem"
+showWidgetBorder = true
+
+[theme.light]
+primaryColor = "#1e3a8a"
+linkColor = "#1e3a8a"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f1f5f9"
+textColor = "#0f172a"
+borderColor = "#cbd5e1"
+
+[theme.dark]
+primaryColor = "#93b4ff"
+linkColor = "#93b4ff"
+backgroundColor = "#0b1220"
+secondaryBackgroundColor = "#162033"
+textColor = "#e2e8f0"
+borderColor = "#334155"
