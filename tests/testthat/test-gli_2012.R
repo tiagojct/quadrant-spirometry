@@ -77,3 +77,14 @@ test_that("compute_gli_2012 rejects implausible inputs with informative errors",
     "fev1 cannot exceed fvc"
   )
 })
+
+test_that("compute_gli_2012 enforces the supported age range of 3 to 95 years", {
+  expect_error(
+    compute_gli_2012(2.9, 170, 1L, 1L, 3, 4), "between 3 and 95"
+  )
+  expect_error(
+    compute_gli_2012(95.1, 170, 1L, 1L, 2, 3), "between 3 and 95"
+  )
+  expect_s3_class(compute_gli_2012(3, 100, 1L, 1L, 1.2, 1.4), "data.frame")
+  expect_s3_class(compute_gli_2012(95, 170, 1L, 1L, 2, 3), "data.frame")
+})

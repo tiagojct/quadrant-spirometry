@@ -53,6 +53,26 @@ NHANES3_ETHNICITY <- c(
 #' @keywords internal
 SPIROMETRY_PARAMS <- c("FEV1", "FVC", "FEV1FVC")
 
+#' Age range in years supported by the GLI-2012 and GLI-Global 2022
+#' equations. rspiro returns NA outside this range.
+#' @keywords internal
+GLI_AGE_RANGE_YEARS <- c(3, 95)
+
+#' Age range in years of the NHANES III reference population
+#' (Hankinson et al. 1999). rspiro does not stop outside this range and
+#' extrapolates, so the wrapper enforces the range.
+#' @keywords internal
+NHANES3_AGE_RANGE_YEARS <- c(8, 80)
+
+#' Plausible physiological age range in years. Used only as the default
+#' check when a wrapper passes no equation-specific range.
+#' @keywords internal
+PLAUSIBLE_AGE_RANGE_YEARS <- c(0, 120)
+
+#' Plausible standing height range in centimetres, also used by the UI.
+#' @keywords internal
+HEIGHT_RANGE_CM <- c(50, 250)
+
 #' Standard disclaimer shown in the UI footer and on exported reports.
 #' @keywords internal
 DISCLAIMER_TEXT <- "For research and educational purposes. Not for clinical decision-making."

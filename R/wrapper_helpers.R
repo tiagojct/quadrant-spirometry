@@ -10,8 +10,9 @@
 #'
 #' Fails loudly with informative messages when inputs are missing,
 #' wrong length, out of plausible physiological range, or refer to an
-#' unsupported ethnicity code. The plausible ranges are loose by design:
-#' rspiro itself enforces equation-specific age and height domains.
+#' unsupported ethnicity code. The height range is loose by design. The
+#' age range is equation-specific: each wrapper passes the range its
+#' reference population supports, and the error names that range.
 #'
 #' Ethnicity is optional: race-neutral equations such as GLI-Global 2022
 #' have no ethnicity argument. Pass \code{ethnicity_code = NULL} and
@@ -20,7 +21,8 @@
 validate_subject_inputs <- function(age_years, height_cm, sex_code,
                                     ethnicity_code = NULL,
                                     valid_ethnicity = NULL,
-                                    fev1, fvc) {
+                                    fev1, fvc,
+                                    age_range = PLAUSIBLE_AGE_RANGE_YEARS) {
   scalar_numeric <- function(x, label) {
     if (length(x) != 1 || !is.numeric(x) || is.na(x)) {
       stop(sprintf("%s must be a single non-missing numeric value.", label),
@@ -32,12 +34,14 @@ validate_subject_inputs <- function(age_years, height_cm, sex_code,
   scalar_numeric(fev1, "fev1")
   scalar_numeric(fvc, "fvc")
 
-  if (age_years <= 0 || age_years > 120) {
-    stop("age_years must be a plausible age in years (0 to 120).",
+  if (age_years < age_range[1] || age_years > age_range[2]) {
+    stop(sprintf("age_years must be between %g and %g years for this reference equation.",
+                 age_range[1], age_range[2]),
          call. = FALSE)
   }
-  if (height_cm < 50 || height_cm > 250) {
-    stop("height_cm must be a plausible standing height in centimetres (50 to 250).",
+  if (height_cm < HEIGHT_RANGE_CM[1] || height_cm > HEIGHT_RANGE_CM[2]) {
+    stop(sprintf("height_cm must be a plausible standing height in centimetres (%g to %g).",
+                 HEIGHT_RANGE_CM[1], HEIGHT_RANGE_CM[2]),
          call. = FALSE)
   }
   if (fev1 <= 0 || fvc <= 0) {

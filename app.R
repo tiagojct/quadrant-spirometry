@@ -78,58 +78,54 @@ server <- function(input, output, session) {
     )
   })
 
-  results_gli_2012 <- reactive({
-    if (!inputs_ready()) return(NULL)
+  # Each family returns list(value, message). On error the value is NULL
+  # and the message explains why, so the card can show the reason instead
+  # of the generic "enter values" prompt.
+  compute_family <- function(expr) {
     tryCatch(
-      compute_gli_2012(
-        age_years      = input$age_years,
-        height_cm      = input$height_cm,
-        sex_code       = as.integer(input$sex_code),
-        ethnicity_code = as.integer(input$ethnicity_gli),
-        fev1           = input$fev1,
-        fvc            = input$fvc
-      ),
-      error = function(e) {
-        message("GLI-2012 wrapper error: ", conditionMessage(e))
-        NULL
-      }
+      list(value = expr, message = NULL),
+      error = function(e) list(value = NULL, message = conditionMessage(e))
     )
+  }
+
+  calc_gli_2012 <- reactive({
+    if (!inputs_ready()) return(NULL)
+    compute_family(compute_gli_2012(
+      age_years      = input$age_years,
+      height_cm      = input$height_cm,
+      sex_code       = as.integer(input$sex_code),
+      ethnicity_code = as.integer(input$ethnicity_gli),
+      fev1           = input$fev1,
+      fvc            = input$fvc
+    ))
   })
 
-  results_gli_2022 <- reactive({
+  calc_gli_2022 <- reactive({
     if (!inputs_ready()) return(NULL)
-    tryCatch(
-      compute_gli_global_2022(
-        age_years = input$age_years,
-        height_cm = input$height_cm,
-        sex_code  = as.integer(input$sex_code),
-        fev1      = input$fev1,
-        fvc       = input$fvc
-      ),
-      error = function(e) {
-        message("GLI-Global 2022 wrapper error: ", conditionMessage(e))
-        NULL
-      }
-    )
+    compute_family(compute_gli_global_2022(
+      age_years = input$age_years,
+      height_cm = input$height_cm,
+      sex_code  = as.integer(input$sex_code),
+      fev1      = input$fev1,
+      fvc       = input$fvc
+    ))
   })
 
-  results_nhanes <- reactive({
+  calc_nhanes3 <- reactive({
     if (!inputs_ready()) return(NULL)
-    tryCatch(
-      compute_nhanes3(
-        age_years      = input$age_years,
-        height_cm      = input$height_cm,
-        sex_code       = as.integer(input$sex_code),
-        ethnicity_code = as.integer(input$ethnicity_nhanes3),
-        fev1           = input$fev1,
-        fvc            = input$fvc
-      ),
-      error = function(e) {
-        message("NHANES III wrapper error: ", conditionMessage(e))
-        NULL
-      }
-    )
+    compute_family(compute_nhanes3(
+      age_years      = input$age_years,
+      height_cm      = input$height_cm,
+      sex_code       = as.integer(input$sex_code),
+      ethnicity_code = as.integer(input$ethnicity_nhanes3),
+      fev1           = input$fev1,
+      fvc            = input$fvc
+    ))
   })
+
+  results_gli_2012 <- reactive({ calc_gli_2012()$value })
+  results_gli_2022 <- reactive({ calc_gli_2022()$value })
+  results_nhanes   <- reactive({ calc_nhanes3()$value })
 
   interpretation_for <- function(reactive_df) {
     df <- reactive_df()
@@ -146,32 +142,38 @@ server <- function(input, output, session) {
   interpretation_nhanes3  <- reactive({ interpretation_for(results_nhanes)  })
 
   output$results_gli_2012 <- renderUI({
-    render_reference_table(results_gli_2012())
+    render_reference_table(results_gli_2012(), calc_gli_2012()$message)
   })
   output$results_gli_2022 <- renderUI({
-    render_reference_table(results_gli_2022())
+    render_reference_table(results_gli_2022(), calc_gli_2022()$message)
   })
   output$results_nhanes3 <- renderUI({
-    render_reference_table(results_nhanes())
+    render_reference_table(results_nhanes(), calc_nhanes3()$message)
   })
 
   output$interpretation_gli_2012 <- renderUI({
+    if (!is.null(calc_gli_2012()$message)) return(NULL)
     render_interpretation(interpretation_gli_2012())
   })
   output$interpretation_gli_2022 <- renderUI({
+    if (!is.null(calc_gli_2022()$message)) return(NULL)
     render_interpretation(interpretation_gli_2022())
   })
   output$interpretation_nhanes3 <- renderUI({
+    if (!is.null(calc_nhanes3()$message)) return(NULL)
     render_interpretation(interpretation_nhanes3())
   })
 
   output$badge_gli_2012 <- renderUI({
+    if (!is.null(calc_gli_2012()$message)) return(NULL)
     render_pattern_badge(interpretation_gli_2012())
   })
   output$badge_gli_2022 <- renderUI({
+    if (!is.null(calc_gli_2022()$message)) return(NULL)
     render_pattern_badge(interpretation_gli_2022())
   })
   output$badge_nhanes3 <- renderUI({
+    if (!is.null(calc_nhanes3()$message)) return(NULL)
     render_pattern_badge(interpretation_nhanes3())
   })
 

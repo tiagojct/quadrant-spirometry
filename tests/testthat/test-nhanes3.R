@@ -53,3 +53,14 @@ test_that("GLI-2012 and NHANES III produce comparable but distinct values", {
   expect_true(abs(fev1_gli - fev1_nh) > 0)
   expect_true(abs(fev1_gli - fev1_nh) < 0.5)
 })
+
+test_that("compute_nhanes3 enforces the NHANES III age range of 8 to 80 years", {
+  expect_error(
+    compute_nhanes3(7.9, 130, 1L, 1L, 1.8, 2.1), "between 8 and 80"
+  )
+  expect_error(
+    compute_nhanes3(80.1, 170, 1L, 1L, 2, 3), "between 8 and 80"
+  )
+  expect_s3_class(compute_nhanes3(8, 130, 1L, 1L, 1.8, 2.1), "data.frame")
+  expect_s3_class(compute_nhanes3(80, 170, 1L, 1L, 2, 3), "data.frame")
+})

@@ -67,3 +67,12 @@ test_that("GLI-2012 and GLI-Global 2022 diverge for a non-Caucasian subject", {
   fev1_z_2022 <- gli_2022$z_score[gli_2022$parameter == "FEV1"]
   expect_true(abs(fev1_z_2012 - fev1_z_2022) > 0.1)
 })
+
+test_that("compute_gli_global_2022 enforces the supported age range of 3 to 95 years", {
+  expect_error(
+    compute_gli_global_2022(2.9, 100, 1L, 1.2, 1.4), "between 3 and 95"
+  )
+  expect_error(
+    compute_gli_global_2022(95.1, 170, 1L, 2, 3), "between 3 and 95"
+  )
+})

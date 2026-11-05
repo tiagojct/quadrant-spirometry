@@ -32,6 +32,7 @@ compute_gli_2012 <- function(age_years, height_cm, sex_code, ethnicity_code,
                              fev1, fvc) {
   validate_subject_inputs(
     age_years = age_years,
+    age_range = GLI_AGE_RANGE_YEARS,
     height_cm = height_cm,
     sex_code = sex_code,
     ethnicity_code = ethnicity_code,

@@ -17,9 +17,11 @@ subject_input_card <- function() {
     bslib::card_header("Subject"),
     bslib::card_body(
       shiny::numericInput("age_years", "Age (years)",
-                          value = 40, min = 3, max = 95, step = 1),
+                          value = 40, min = GLI_AGE_RANGE_YEARS[1],
+                          max = GLI_AGE_RANGE_YEARS[2], step = 1),
       shiny::numericInput("height_cm", "Height (cm)",
-                          value = 170, min = 50, max = 230, step = 0.5),
+                          value = 170, min = HEIGHT_RANGE_CM[1],
+                          max = HEIGHT_RANGE_CM[2], step = 0.5),
       shiny::selectInput("sex_code", "Sex",
                          choices = SEX_CODES, selected = SEX_CODES[["Male"]]),
       shiny::selectInput("ethnicity_gli", "Ethnicity (GLI-2012)",
@@ -142,13 +144,22 @@ render_interpretation <- function(interpretation) {
 
 #' Render a long-form reference result data.frame as an HTML table.
 #'
-#' Used inside renderUI in app.R. Returns an HTML table fragment with
+#' Used inside renderUI in app.R. When \code{message} is not NULL, the
+#' card shows that message instead of a table: it explains why this
+#' family cannot be computed for the current inputs. Otherwise returns
+#' an HTML table fragment with
 #' rounded numeric columns. A row whose z-score sits below -1.645 is
 #' flagged with a "below LLN" label in the parameter column; no other
 #' interpretation is attached at this stage (full classification lives
 #' in Phase 3).
 #' @keywords internal
-render_reference_table <- function(reference_df) {
+render_reference_table <- function(reference_df, message = NULL) {
+  if (!is.null(message)) {
+    return(shiny::tags$div(
+      class = "text-danger small",
+      "Not available for these inputs: ", message
+    ))
+  }
   if (is.null(reference_df)) {
     return(shiny::tags$em("Enter values to compute results."))
   }
