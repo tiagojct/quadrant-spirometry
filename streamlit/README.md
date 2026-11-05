@@ -39,9 +39,9 @@ The equations come from the `pyspiro` package (MIT licence): GLI-2012, GLI-Globa
 
 - Colours, fonts and corner radius are set in `.streamlit/config.toml`, with a light and a dark theme. The app uses no custom CSS on screen.
 - The page uses native Streamlit elements: a sidebar for the inputs, bordered containers for the chart and the three equation cards, `st.badge` for the pattern, `st.table` for the values and `st.warning` for problems.
-- The chart is the one exception. Streamlit has no native chart for this layout, so it is an SVG shown with `st.image`. Its white background keeps it readable on the dark theme.
+- The comparison chart is an Altair chart (`quadrant/charts.py`) that follows the light and dark theme. Markers differ in colour and shape, bands show the severity levels, a dashed line marks the lower limit of normal, and a tooltip gives the observed, predicted and lower-limit values. A z-score beyond the axis sits just inside the edge, and its label and tooltip keep the real value.
 - The app turns off Streamlit usage analytics (`gatherUsageStats = false`).
-- The exported report keeps its own HTML and CSS, because it must work as a file outside Streamlit.
+- The exported report keeps its own HTML, CSS and static SVG chart (`quadrant/visuals.py`), because it must work as a file outside Streamlit.
 
 ## Layout
 
@@ -49,7 +49,8 @@ The equations come from the `pyspiro` package (MIT licence): GLI-2012, GLI-Globa
 - `quadrant/constants.py`: constants and lookup tables.
 - `quadrant/wrappers.py`: validation and the three reference wrappers.
 - `quadrant/interpretation.py`: pattern and severity.
-- `quadrant/visuals.py`: SVG chart.
+- `quadrant/charts.py`: interactive chart for the page.
+- `quadrant/visuals.py`: static SVG chart for the report.
 - `quadrant/fragments.py`: HTML fragments.
 - `quadrant/report.py`: report export.
 - `tests/`: pytest suite.

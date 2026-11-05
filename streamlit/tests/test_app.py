@@ -31,7 +31,11 @@ def test_the_default_inputs_render_without_an_exception():
     assert text.count("Pattern consistent with normal") == 3
     assert len(at.warning) == 0
     assert len(at.table) == 3
-    assert len(at.get("image")) == 1
+    assert len(at.get("vega_lite_chart")) == 1
+
+
+def test_the_chart_is_hidden_when_inputs_are_unusable():
+    assert len(_run(fev1=5.0, fvc=4.0).get("vega_lite_chart")) == 0
 
 
 def test_a_family_outside_its_age_range_shows_the_reason_and_the_others_compute():

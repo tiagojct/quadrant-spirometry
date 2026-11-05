@@ -1,0 +1,197 @@
+"""Interactive comparison chart for the Streamlit page.
+
+The chart puts the FEV1, FVC and FEV1/FVC z-scores of every reference
+family on one axis. Shaded bands show the severity levels, a dashed line
+marks the lower limit of normal, and a tooltip on each marker gives the
+observed, predicted and lower-limit values. The exported report keeps the
+static SVG in visuals.py, because it must work as a standalone file.
+"""
+
+from __future__ import annotations
+
+import altair as alt
+import pandas as pd
+
+from .constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN, SPIROMETRY_PARAMS
+
+Z_AXIS_MIN = -5.0
+Z_AXIS_MAX = 3.0
+
+# An off-scale value is drawn this far inside the axis, so the marker is
+# not cut in half. Its label and tooltip still show the real z-score.
+EDGE_MARGIN = 0.15
+
+PARAMETER_LABELS = {"FEV1": "FEV1", "FVC": "FVC", "FEV1FVC": "FEV1/FVC"}
+
+# Marker colour and shape for each family. The shapes repeat the colours,
+# so the chart stays readable without colour vision.
+FAMILY_STYLE = {
+    "GLI-2012": ("#2563eb", "circle"),
+    "GLI-Global 2022": ("#9333ea", "square"),
+    "NHANES III": ("#111827", "diamond"),
+}
+
+# Severity bands from the lowest z-score up: lower bound, upper bound,
+# legend label and colour.
+BANDS = (
+    (Z_AXIS_MIN, SEVERITY_MODERATE_Z_MIN, "Severe (below -4.0)", "#dc2626"),
+    (SEVERITY_MODERATE_Z_MIN, SEVERITY_MILD_Z_MIN, "Moderate (-4.0 to -2.5)", "#f59e0b"),
+    (SEVERITY_MILD_Z_MIN, LLN_Z, "Mild (-2.5 to LLN)", "#facc15"),
+    (LLN_Z, Z_AXIS_MAX, "Normal (LLN and above)", "#4ade80"),
+)
+
+AXIS_TITLE = "z-score (dashed line: lower limit of normal, z = -1.645)"
+
+
+def band_frame() -> pd.DataFrame:
+    """One row for each severity band."""
+    return pd.DataFrame(BANDS, columns=["z_lo", "z_hi", "band", "colour"])
+
+
+def points_frame(family_tables: dict) -> pd.DataFrame:
+    """Long table with one row for each family and parameter.
+
+    Families without a result are left out. z_plot is the z-score clamped
+    to the axis, so an extreme value sits just inside the edge. The tooltip shows
+    the real z-score.
+    """
+    rows = []
+    for family, table in family_tables.items():
+        if table is None:
+            continue
+        for row in table.itertuples(index=False):
+            rows.append(
+                {
+                    "family": family,
+                    "parameter": PARAMETER_LABELS[row.parameter],
+                    "z_score": float(row.z_score),
+                    "z_plot": min(
+                        max(float(row.z_score), Z_AXIS_MIN + EDGE_MARGIN),
+                        Z_AXIS_MAX - EDGE_MARGIN,
+                    ),
+                    "z_text": f"{row.z_score:.2f}",
+                    "observed": float(row.observed),
+                    "predicted": float(row.predicted),
+                    "lln": float(row.lln),
+                    "percent_predicted": float(row.percent_predicted),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
+    """Build the chart, or return None when no family has a result."""
+    points = points_frame(family_tables)
+    if points.empty:
+        return None
+
+    bands = band_frame()
+    families = [name for name in FAMILY_STYLE if name in set(points["family"])]
+    parameters = [PARAMETER_LABELS[p] for p in SPIROMETRY_PARAMS]
+
+    x_scale = alt.Scale(domain=[Z_AXIS_MIN, Z_AXIS_MAX], nice=False)
+    x_axis = alt.Axis(
+        title=AXIS_TITLE,
+        values=list(range(int(Z_AXIS_MIN), int(Z_AXIS_MAX) + 1)),
+        grid=False,
+        labelFontSize=12,
+        titleFontSize=12,
+        titleFontWeight="normal",
+    )
+
+    band_layer = (
+        alt.Chart(bands)
+        .mark_rect(opacity=0.38)
+        .encode(
+            x=alt.X("z_lo:Q", scale=x_scale, axis=x_axis),
+            x2="z_hi:Q",
+            fill=alt.Fill(
+                "band:N",
+                scale=alt.Scale(domain=list(bands["band"]), range=list(bands["colour"])),
+                legend=alt.Legend(
+                    title="Severity band (FEV1 z-score)",
+                    orient="bottom",
+                    direction="horizontal",
+                    columns=4,
+                    symbolOpacity=0.6,
+                    labelFontSize=12,
+                    titleFontSize=12,
+                ),
+            ),
+        )
+    )
+
+    lln_layer = (
+        alt.Chart(pd.DataFrame({"z": [LLN_Z]}))
+        .mark_rule(strokeDash=[6, 4], strokeWidth=2, color="#94a3b8")
+        .encode(x=alt.X("z:Q", scale=x_scale))
+    )
+
+    y = alt.Y(
+        "parameter:N",
+        sort=parameters,
+        axis=alt.Axis(
+            title=None, domain=False, ticks=False, labelFontSize=14,
+            labelPadding=10, grid=True, tickBand="extent",
+            gridColor="#94a3b8", gridOpacity=0.7, gridWidth=1.2,
+        ),
+        scale=alt.Scale(paddingInner=0, paddingOuter=0),
+    )
+    y_offset = alt.YOffset("family:N", sort=families)
+    family_scale_colour = alt.Scale(
+        domain=families, range=[FAMILY_STYLE[f][0] for f in families]
+    )
+    family_scale_shape = alt.Scale(
+        domain=families, range=[FAMILY_STYLE[f][1] for f in families]
+    )
+
+    marker_layer = (
+        alt.Chart(points)
+        .mark_point(filled=True, size=200, opacity=1, stroke="white", strokeWidth=1.6)
+        .encode(
+            x=alt.X("z_plot:Q", scale=x_scale),
+            y=y,
+            yOffset=y_offset,
+            color=alt.Color(
+                "family:N",
+                scale=family_scale_colour,
+                legend=alt.Legend(
+                    title="Reference equation",
+                    orient="bottom",
+                    direction="horizontal",
+                    labelFontSize=12,
+                    titleFontSize=12,
+                    symbolSize=160,
+                ),
+            ),
+            shape=alt.Shape("family:N", scale=family_scale_shape, legend=None),
+            tooltip=[
+                alt.Tooltip("family:N", title="Equation"),
+                alt.Tooltip("parameter:N", title="Parameter"),
+                alt.Tooltip("z_score:Q", title="Z-score", format=".2f"),
+                alt.Tooltip("observed:Q", title="Observed", format=".2f"),
+                alt.Tooltip("predicted:Q", title="Predicted", format=".2f"),
+                alt.Tooltip("lln:Q", title="LLN", format=".2f"),
+                alt.Tooltip("percent_predicted:Q", title="% predicted", format=".1f"),
+            ],
+        )
+    )
+
+    label_layer = (
+        alt.Chart(points)
+        .mark_text(align="left", dx=13, fontSize=12)
+        .encode(
+            x=alt.X("z_plot:Q", scale=x_scale),
+            y=y,
+            yOffset=y_offset,
+            text="z_text:N",
+        )
+    )
+
+    return (
+        alt.layer(band_layer, lln_layer, label_layer, marker_layer)
+        .resolve_scale(color="independent", fill="independent", shape="independent")
+        .properties(height=360)
+        .configure_view(stroke=None)
+        .configure_legend(padding=6)
+    )

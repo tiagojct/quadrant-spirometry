@@ -23,6 +23,7 @@ from quadrant.constants import (
     NHANES3_ETHNICITY,
     SEX_CODES,
 )
+from quadrant.charts import comparison_chart
 from quadrant.fragments import (
     AGREE_NOTE,
     AGREE_TEXT,
@@ -36,7 +37,7 @@ from quadrant.fragments import (
 )
 from quadrant.interpretation import interpret_spirometry
 from quadrant.report import prepare_report_bundle, render_report_html
-from quadrant.visuals import cross_family_chart_svg, is_svg
+from quadrant.visuals import cross_family_chart_svg
 from quadrant.wrappers import compute_gli_2012, compute_gli_global_2022, compute_nhanes3
 
 st.set_page_config(
@@ -127,13 +128,15 @@ interpretations = {
     key: interpret_spirometry(table) if table is not None else None
     for key, table in results.items()
 }
-chart = cross_family_chart_svg(
-    {
-        "GLI-2012": results["gli_2012"],
-        "GLI-Global 2022": results["gli_2022"],
-        "NHANES III": results["nhanes3"],
-    }
+family_tables = {
+    "GLI-2012": results["gli_2012"],
+    "GLI-Global 2022": results["gli_2022"],
+    "NHANES III": results["nhanes3"],
+}
+report_chart = cross_family_chart_svg(
+    family_tables
 )
+screen_chart = comparison_chart(family_tables)
 
 # Report export, built in memory when the inputs are usable.
 with st.sidebar:
@@ -150,7 +153,7 @@ with st.sidebar:
             },
             results=results,
             interpretations=interpretations,
-            chart_svg=chart,
+            chart_svg=report_chart,
             comparison_html=render_gli_comparison(results["gli_2012"], results["gli_2022"]),
         )
         report_html = render_report_html(bundle)
@@ -178,9 +181,8 @@ if problem:
 
 with st.container(border=True):
     st.subheader("Cross-family z-score comparison", icon=":material/query_stats:")
-    if is_svg(chart):
-        # st.html strips SVG, so the chart goes through st.image.
-        st.image(chart, width="stretch", alt=CHART_ALT)
+    if screen_chart is not None:
+        st.altair_chart(screen_chart, width="stretch", alt=CHART_ALT)
     else:
         st.caption("Enter values to draw the comparison chart.")
     notes = comparison_notes(results["gli_2012"], results["gli_2022"])
