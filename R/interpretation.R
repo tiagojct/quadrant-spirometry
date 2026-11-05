@@ -50,27 +50,26 @@ classify_pattern <- function(fev1_z, fvc_z, fev1_fvc_z) {
 
 #' Grade the severity of an impairment by FEV1 z-score.
 #'
-#' Uses the five-band scheme reproduced from the ATS/ERS 2022 technical
-#' standard table on severity grading by z-score. The cut-offs are
-#' applied to the FEV1 z-score regardless of the pattern: severity is
-#' a separate axis from the pattern label. Callers decide whether
-#' severity should be displayed (it is conventionally hidden for a
-#' normal pattern).
+#' Uses the three-level scheme of the ATS/ERS 2022 technical standard
+#' (Stanojevic et al., ERJ 2022): mild for a z-score of -2.5 or higher,
+#' moderate from -2.5 down to -4.0, severe below -4.0. The five-level
+#' scheme in percent of predicted belongs to the 2005 statement and is
+#' not used. The cut-offs are applied to the FEV1 z-score regardless of
+#' the pattern: severity is a separate axis from the pattern label.
+#' Callers decide whether severity should be displayed (it is
+#' conventionally hidden for a normal pattern).
 #'
 #' @param fev1_z FEV1 z-score, single numeric.
-#' @return One of "mild", "moderate", "moderately severe", "severe",
-#'   "very severe".
+#' @return One of "mild", "moderate", "severe".
 #' @keywords internal
 grade_severity <- function(fev1_z) {
   if (length(fev1_z) != 1 || !is.numeric(fev1_z) || is.na(fev1_z)) {
     stop("grade_severity needs a single non-missing numeric z-score.",
          call. = FALSE)
   }
-  if (fev1_z >= -2.0) return("mild")
-  if (fev1_z >= -2.5) return("moderate")
-  if (fev1_z >= -3.0) return("moderately severe")
-  if (fev1_z >= -4.0) return("severe")
-  "very severe"
+  if (fev1_z >= -2.5) return("mild")
+  if (fev1_z >= -4.0) return("moderate")
+  "severe"
 }
 
 #' Interpret a single reference family's result.

@@ -80,9 +80,7 @@ render_pattern_badge <- function(interpretation) {
     normal              = list(bg = "#86efac", fg = "#0f172a"),
     mild                = list(bg = "#facc15", fg = "#0f172a"),
     moderate            = list(bg = "#f59e0b", fg = "#0f172a"),
-    `moderately severe` = list(bg = "#ea580c", fg = "#ffffff"),
-    severe              = list(bg = "#dc2626", fg = "#ffffff"),
-    `very severe`       = list(bg = "#b91c1c", fg = "#ffffff")
+    severe              = list(bg = "#dc2626", fg = "#ffffff")
   )
   key <- if (is.na(severity)) "normal" else severity
   colours <- palette[[key]]

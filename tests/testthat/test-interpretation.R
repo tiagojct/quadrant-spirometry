@@ -53,20 +53,18 @@ test_that("classify_pattern rejects invalid inputs", {
   expect_error(classify_pattern(c(-1, -2), 0, 0), "single")
 })
 
-test_that("grade_severity follows the ATS/ERS 2022 five-band scheme", {
+test_that("grade_severity follows the ATS/ERS 2022 three-level scheme", {
   expect_equal(grade_severity(-1.7),  "mild")
   expect_equal(grade_severity(-2.0),  "mild")
-  expect_equal(grade_severity(-2.1),  "moderate")
-  expect_equal(grade_severity(-2.5),  "moderate")
-  expect_equal(grade_severity(-2.6),  "moderately severe")
-  expect_equal(grade_severity(-3.0),  "moderately severe")
-  expect_equal(grade_severity(-3.1),  "severe")
-  expect_equal(grade_severity(-4.0),  "severe")
-  expect_equal(grade_severity(-4.1),  "very severe")
-  expect_equal(grade_severity(-6.0),  "very severe")
+  expect_equal(grade_severity(-2.5),  "mild")
+  expect_equal(grade_severity(-2.51), "moderate")
+  expect_equal(grade_severity(-3.0),  "moderate")
+  expect_equal(grade_severity(-4.0),  "moderate")
+  expect_equal(grade_severity(-4.01), "severe")
+  expect_equal(grade_severity(-6.0),  "severe")
 })
 
-test_that("grade_severity returns 'mild' for any z-score at or above -2.0, including positive z-scores", {
+test_that("grade_severity returns 'mild' for any z-score at or above -2.5, including positive z-scores", {
   expect_equal(grade_severity(0.0),  "mild")
   expect_equal(grade_severity(1.5),  "mild")
 })
@@ -98,11 +96,11 @@ test_that("interpret_spirometry combines pattern and severity correctly", {
 
   obstructive <- interpret_spirometry(make_reference_df(-2.7, -1.0, -3.0))
   expect_equal(obstructive$pattern,  "obstructive")
-  expect_equal(obstructive$severity, "moderately severe")
+  expect_equal(obstructive$severity, "moderate")
 
   mixed <- interpret_spirometry(make_reference_df(-4.5, -2.0, -2.0))
   expect_equal(mixed$pattern,  "mixed pattern (suggestive)")
-  expect_equal(mixed$severity, "very severe")
+  expect_equal(mixed$severity, "severe")
 
   restrictive <- interpret_spirometry(make_reference_df(-1.0, -2.0, 0.0))
   expect_equal(restrictive$pattern,  "restrictive pattern (suggestive)")
@@ -110,7 +108,7 @@ test_that("interpret_spirometry combines pattern and severity correctly", {
 
   non_specific <- interpret_spirometry(make_reference_df(-2.5, -1.0, -1.0))
   expect_equal(non_specific$pattern,  "non-specific")
-  expect_equal(non_specific$severity, "moderate")
+  expect_equal(non_specific$severity, "mild")
 })
 
 test_that("interpret_spirometry surfaces the per-parameter z-scores it used", {

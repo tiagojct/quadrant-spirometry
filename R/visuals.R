@@ -23,11 +23,9 @@ LLN_Z_VISUAL <- -1.645
 #' lower-case to match the wording used in the interpretation block.
 #' @keywords internal
 SEVERITY_BANDS <- list(
-  list(z_lo = Z_AXIS_MIN,  z_hi = -4.0,         fill = "#b91c1c", label = "very severe"),
-  list(z_lo = -4.0,        z_hi = -3.0,         fill = "#dc2626", label = "severe"),
-  list(z_lo = -3.0,        z_hi = -2.5,         fill = "#ea580c", label = "moderately severe"),
-  list(z_lo = -2.5,        z_hi = -2.0,         fill = "#f59e0b", label = "moderate"),
-  list(z_lo = -2.0,        z_hi = LLN_Z_VISUAL, fill = "#facc15", label = "mild"),
+  list(z_lo = Z_AXIS_MIN,  z_hi = -4.0,         fill = "#dc2626", label = "severe"),
+  list(z_lo = -4.0,        z_hi = -2.5,         fill = "#f59e0b", label = "moderate"),
+  list(z_lo = -2.5,        z_hi = LLN_Z_VISUAL, fill = "#facc15", label = "mild"),
   list(z_lo = LLN_Z_VISUAL, z_hi = Z_AXIS_MAX,  fill = "#86efac", label = "normal")
 )
 
@@ -97,7 +95,7 @@ z_axis_svg <- function(y, pad_left, plot_width, font_size = 10) {
 #'
 #' One colour swatch + label per severity band, packed into a single
 #' row above the chart. Replaces the previous in-place band labels
-#' which collided when the narrow moderate/moderately severe/mild
+#' which collided when the narrow moderate/mild
 #' bands sat too close together on the axis.
 #' @keywords internal
 severity_legend_svg <- function(y, pad_left, plot_width, font_size = 12) {
