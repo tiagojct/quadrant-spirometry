@@ -42,5 +42,4 @@ jobs:
         uses: r-lib/actions/setup-renv@v2
 
       - name: Run test suite
-        working-directory: tests
-        run: Rscript testthat.R
+        run: Rscript tests/testthat.R
