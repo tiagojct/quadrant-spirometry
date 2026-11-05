@@ -22,7 +22,7 @@ Each results panel carries an interpretation block under the table, using the AT
 
 A cross-family comparison chart sits at the top of the page as the hero visual. It shows all three reference families on a common z-axis, one row per parameter, with a horizontal legend strip naming the severity bands and a dashed line at the lower limit of normal. A short text note beneath the chart flags any parameter where GLI-2012 and GLI-Global 2022 disagree on the above or below LLN classification.
 
-Each per-family card below carries a coloured classification badge at the top, labelled with the ATS/ERS 2022 pattern and severity grade (for example, OBSTRUCTIVE · severe on a red pill, NORMAL on a green pill). The pill colour matches the severity band the FEV1 z-score sits in. Visual emphasis only, no diagnostic semantics.
+Each per-family card below carries a coloured classification badge at the top, labelled with the ATS/ERS 2022 pattern and severity grade (for example, "Pattern consistent with obstructive · severe" on a red pill, "Pattern consistent with normal" on a green pill). The pill colour matches the severity band the FEV1 z-score sits in. Visual emphasis only, no diagnostic semantics.
 
 A "Download HTML report" button in the sidebar exports a self-contained HTML file with the inputs, the embedded cross-family SVG chart, the per-family tables, badges, and interpretation blocks, the disclaimer, and a timestamp. Use the browser's Print menu on the downloaded HTML to produce a PDF. Native PDF export is deferred to a follow-up phase to avoid requiring a LaTeX or Typst toolchain on every host.
 

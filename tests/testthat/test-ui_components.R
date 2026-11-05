@@ -30,10 +30,13 @@ test_that("render_reference_table shows the message instead of a table", {
 
 test_that("render_pattern_badge maps severity to a colour and a label", {
   normal <- as.character(render_pattern_badge(list(pattern = "normal", severity = NA_character_)))
-  expect_true(grepl("NORMAL", normal, fixed = TRUE))
+  expect_true(grepl("Pattern consistent with normal", normal, fixed = TRUE))
   severe <- as.character(render_pattern_badge(list(pattern = "obstructive", severity = "severe")))
-  expect_true(grepl("OBSTRUCTIVE", severe, fixed = TRUE))
-  expect_true(grepl("severe", severe, fixed = TRUE))
+  expect_true(grepl("Pattern consistent with obstructive", severe, fixed = TRUE))
+  expect_true(grepl("· severe", severe, fixed = TRUE))
+  mixed <- as.character(render_pattern_badge(list(pattern = "mixed pattern (suggestive)", severity = "moderate")))
+  expect_true(grepl("Consistent with mixed pattern (suggestive)", mixed, fixed = TRUE))
+  expect_false(grepl("Pattern consistent with mixed", mixed, fixed = TRUE))
   expect_true(grepl("Enter values", as.character(render_pattern_badge(NULL)), fixed = TRUE))
 })
 

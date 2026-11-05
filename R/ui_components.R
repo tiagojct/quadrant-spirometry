@@ -88,10 +88,18 @@ render_pattern_badge <- function(interpretation) {
   colours <- palette[[key]]
   if (is.null(colours)) colours <- list(bg = "#94a3b8", fg = "#0f172a")
 
-  label <- if (is.na(severity)) {
-    toupper(pattern)
+  # Wording is descriptive, never diagnostic. Labels that already contain
+  # the word "pattern" (for example "restrictive pattern (suggestive)")
+  # do not repeat it.
+  pattern_text <- if (grepl("pattern", pattern, fixed = TRUE)) {
+    sprintf("Consistent with %s", pattern)
   } else {
-    sprintf("%s · %s", toupper(pattern), severity)
+    sprintf("Pattern consistent with %s", pattern)
+  }
+  label <- if (is.na(severity)) {
+    pattern_text
+  } else {
+    sprintf("%s · %s", pattern_text, severity)
   }
 
   shiny::tags$div(
