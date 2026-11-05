@@ -101,7 +101,9 @@ prepare_report_bundle <- function(subject, results, interpretations,
 #' @param output_format One of "html" or "pdf". HTML is always
 #'   available; PDF requires a working Quarto PDF backend on the
 #'   host (Typst or a LaTeX distribution).
-#' @return Absolute path to the rendered file.
+#' @return Absolute path to the rendered file. The file sits in a
+#'   temporary directory that the caller must remove with
+#'   \code{unlink(dirname(path), recursive = TRUE)} after use.
 #' @keywords internal
 render_quadrant_report <- function(bundle, output_format = "html") {
   if (!output_format %in% c("html", "pdf")) {
@@ -111,6 +113,9 @@ render_quadrant_report <- function(bundle, output_format = "html") {
   dir.create(workdir)
   bundle_path <- file.path(workdir, "bundle.rds")
   saveRDS(bundle, bundle_path)
+  # The bundle holds the subject inputs. Remove it as soon as rendering
+  # ends, also when rendering fails, so no input stays on disk.
+  on.exit(unlink(bundle_path), add = TRUE)
 
   template_src <- "inst/report_template.qmd"
   template_dst <- file.path(workdir, "report.qmd")

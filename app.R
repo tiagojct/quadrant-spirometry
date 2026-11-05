@@ -222,6 +222,8 @@ server <- function(input, output, session) {
       bundle <- prepare_report_bundle(subject, results, interpretations,
                                       chart_svg, comparison_text)
       rendered <- render_quadrant_report(bundle, output_format = "html")
+      # Remove the temporary report directory once the file is served.
+      on.exit(unlink(dirname(rendered), recursive = TRUE), add = TRUE)
       file.copy(rendered, file, overwrite = TRUE)
     },
     contentType = "text/html"

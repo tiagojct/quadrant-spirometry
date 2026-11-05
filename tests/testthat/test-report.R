@@ -98,3 +98,22 @@ test_that("render_quadrant_report rejects unknown output formats", {
     "html.*pdf"
   )
 })
+
+test_that("render_quadrant_report leaves no bundle.rds on disk", {
+  skip_if_not(nzchar(Sys.which("quarto")), "quarto CLI is not available")
+  root <- normalizePath(file.path(getwd(), "..", ".."))
+  skip_if_not(file.exists(file.path(root, "inst", "report_template.qmd")))
+  old_wd <- setwd(root)
+  on.exit(setwd(old_wd), add = TRUE)
+
+  results <- build_sample_results()
+  bundle <- prepare_report_bundle(
+    build_sample_subject(), results, build_sample_interpretations(results),
+    "<svg/>", shiny::tags$p("ok")
+  )
+  rendered <- render_quadrant_report(bundle, output_format = "html")
+  on.exit(unlink(dirname(rendered), recursive = TRUE), add = TRUE)
+
+  expect_true(file.exists(rendered))
+  expect_false(file.exists(file.path(dirname(rendered), "bundle.rds")))
+})
