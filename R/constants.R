@@ -78,6 +78,22 @@ HEIGHT_RANGE_CM <- c(50, 250)
 #' @keywords internal
 REPORT_TEMPLATE_PATH <- file.path("inst", "report_template.qmd")
 
+#' Z-score cut-off used as the lower limit of normal in the ATS/ERS 2022
+#' framework (the 5th percentile). The same threshold applies to FEV1,
+#' FVC and FEV1/FVC. Every module reads this one value.
+#' @keywords internal
+LLN_Z <- -1.645
+
+#' Lower z-score bound of the "mild" severity level (FEV1 z-score of
+#' this value or higher is mild).
+#' @keywords internal
+SEVERITY_MILD_Z_MIN <- -2.5
+
+#' Lower z-score bound of the "moderate" severity level. Below this
+#' value the severity is "severe".
+#' @keywords internal
+SEVERITY_MODERATE_Z_MIN <- -4.0
+
 #' Standard disclaimer shown in the UI footer and on exported reports.
 #' @keywords internal
 DISCLAIMER_TEXT <- "For research and educational purposes. Not for clinical decision-making."

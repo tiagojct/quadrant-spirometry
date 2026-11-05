@@ -148,7 +148,7 @@ render_interpretation <- function(interpretation) {
 #' card shows that message instead of a table: it explains why this
 #' family cannot be computed for the current inputs. Otherwise returns
 #' an HTML table fragment with
-#' rounded numeric columns. A row whose z-score sits below -1.645 is
+#' rounded numeric columns. A row whose z-score sits below LLN_Z is
 #' flagged with a "below LLN" label in the parameter column; no other
 #' interpretation is attached at this stage (full classification lives
 #' in Phase 3).
@@ -164,7 +164,7 @@ render_reference_table <- function(reference_df, message = NULL) {
     return(shiny::tags$em("Enter values to compute results."))
   }
   flag_below_lln <- function(z) {
-    !is.na(z) && z < -1.645
+    !is.na(z) && z < LLN_Z
   }
   display <- data.frame(
     Parameter   = ifelse(
@@ -211,9 +211,8 @@ render_gli_comparison <- function(gli_2012_df, gli_2022_df) {
   if (is.null(gli_2012_df) || is.null(gli_2022_df)) {
     return(shiny::tags$em("Enter values to compare equations."))
   }
-  threshold <- -1.645
-  below_lln_2012 <- gli_2012_df$z_score < threshold
-  below_lln_2022 <- gli_2022_df$z_score < threshold
+  below_lln_2012 <- gli_2012_df$z_score < LLN_Z
+  below_lln_2022 <- gli_2022_df$z_score < LLN_Z
   flipped <- below_lln_2012 != below_lln_2022
 
   if (!any(flipped)) {

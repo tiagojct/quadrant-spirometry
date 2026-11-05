@@ -9,12 +9,6 @@
 # report renderer. All language is cautious: outputs describe the
 # spirometric pattern, not a diagnosis.
 
-#' Z-score cut-off used as the lower limit of normal in the
-#' ATS/ERS 2022 framework. The same threshold is used for FEV1/FVC,
-#' FVC, and FEV1.
-#' @keywords internal
-LLN_Z <- -1.645
-
 #' Classify the ventilatory pattern from spirometry z-scores alone.
 #'
 #' Implements the spirometry-only branches of the ATS/ERS 2022
@@ -67,8 +61,8 @@ grade_severity <- function(fev1_z) {
     stop("grade_severity needs a single non-missing numeric z-score.",
          call. = FALSE)
   }
-  if (fev1_z >= -2.5) return("mild")
-  if (fev1_z >= -4.0) return("moderate")
+  if (fev1_z >= SEVERITY_MILD_Z_MIN) return("mild")
+  if (fev1_z >= SEVERITY_MODERATE_Z_MIN) return("moderate")
   "severe"
 }
 

@@ -13,20 +13,16 @@
 Z_AXIS_MIN <- -5
 Z_AXIS_MAX <-  3
 
-#' Z-score boundary used as the lower limit of normal.
-#' @keywords internal
-LLN_Z_VISUAL <- -1.645
-
 #' Severity band definitions, in ascending z-score order. Each entry
 #' carries the lower z bound, upper z bound, fill colour, and the
 #' label shown in the top axis of the comparison chart. Labels are
 #' lower-case to match the wording used in the interpretation block.
 #' @keywords internal
 SEVERITY_BANDS <- list(
-  list(z_lo = Z_AXIS_MIN,  z_hi = -4.0,         fill = "#dc2626", label = "severe"),
-  list(z_lo = -4.0,        z_hi = -2.5,         fill = "#f59e0b", label = "moderate"),
-  list(z_lo = -2.5,        z_hi = LLN_Z_VISUAL, fill = "#facc15", label = "mild"),
-  list(z_lo = LLN_Z_VISUAL, z_hi = Z_AXIS_MAX,  fill = "#86efac", label = "normal")
+  list(z_lo = Z_AXIS_MIN,               z_hi = SEVERITY_MODERATE_Z_MIN, fill = "#dc2626", label = "severe"),
+  list(z_lo = SEVERITY_MODERATE_Z_MIN,  z_hi = SEVERITY_MILD_Z_MIN,     fill = "#f59e0b", label = "moderate"),
+  list(z_lo = SEVERITY_MILD_Z_MIN,      z_hi = LLN_Z,                   fill = "#facc15", label = "mild"),
+  list(z_lo = LLN_Z,                    z_hi = Z_AXIS_MAX,              fill = "#86efac", label = "normal")
 )
 
 #' Marker colours per reference equation family.
@@ -63,7 +59,7 @@ severity_bands_svg <- function(y, height, pad_left, plot_width, band_opacity = 0
       x1, y, x2 - x1, height, b$fill, band_opacity
     )
   }, character(1))
-  lln_x <- z_to_x(LLN_Z_VISUAL, pad_left, plot_width)
+  lln_x <- z_to_x(LLN_Z, pad_left, plot_width)
   lln_line <- sprintf(
     '<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="#1f2937" stroke-width="1.2" stroke-dasharray="4,3" />',
     lln_x, y, lln_x, y + height
@@ -83,7 +79,7 @@ z_axis_svg <- function(y, pad_left, plot_width, font_size = 10) {
       x, y, x, y + 4, x, y + 4 + font_size + 2, font_size, z
     )
   }, character(1))
-  lln_x <- z_to_x(LLN_Z_VISUAL, pad_left, plot_width)
+  lln_x <- z_to_x(LLN_Z, pad_left, plot_width)
   lln_label <- sprintf(
     '<text x="%.2f" y="%.2f" font-size="%d" text-anchor="middle" fill="#1f2937" font-style="italic">LLN</text>',
     lln_x, y - 4, font_size - 1
