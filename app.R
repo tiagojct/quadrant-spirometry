@@ -193,7 +193,15 @@ server <- function(input, output, session) {
       sprintf("quadrant-report-%s.html", format(Sys.time(), "%Y%m%d-%H%M%S"))
     },
     content = function(file) {
-      validate(need(inputs_ready(), "Enter complete values before exporting."))
+      # validate() only works inside render functions, so use an explicit
+      # check here. A notification tells the operator what went wrong.
+      fail_download <- function(message) {
+        showNotification(message, type = "error", duration = 8)
+        stop(message, call. = FALSE)
+      }
+      if (!inputs_ready()) {
+        fail_download("Enter complete values before exporting.")
+      }
 
       subject <- list(
         age_years              = input$age_years,
@@ -223,7 +231,14 @@ server <- function(input, output, session) {
 
       bundle <- prepare_report_bundle(subject, results, interpretations,
                                       chart_svg, comparison_text)
-      rendered <- render_quadrant_report(bundle, output_format = "html")
+      rendered <- tryCatch(
+        render_quadrant_report(bundle, output_format = "html"),
+        error = function(e) {
+          message("Report error: ", conditionMessage(e))
+          fail_download(paste("The report could not be created:",
+                              conditionMessage(e)))
+        }
+      )
       # Remove the temporary report directory once the file is served.
       on.exit(unlink(dirname(rendered), recursive = TRUE), add = TRUE)
       file.copy(rendered, file, overwrite = TRUE)

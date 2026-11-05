@@ -91,6 +91,12 @@ prepare_report_bundle <- function(subject, results, interpretations,
   )
 }
 
+#' Check whether the Quarto CLI is available on this host.
+#' @keywords internal
+quarto_available <- function() {
+  !is.null(quarto::quarto_path())
+}
+
 #' Render the Quadrant report to a file.
 #'
 #' Writes the bundle to a temp RDS, copies the Quarto template into
@@ -109,6 +115,14 @@ render_quadrant_report <- function(bundle, output_format = "html") {
   if (!output_format %in% c("html", "pdf")) {
     stop("output_format must be 'html' or 'pdf'.", call. = FALSE)
   }
+  if (!quarto_available()) {
+    stop("The Quarto CLI is not available on this host, so the report cannot be rendered.",
+         call. = FALSE)
+  }
+  if (!file.exists(REPORT_TEMPLATE_PATH)) {
+    stop(sprintf("Report template not found at %s.", REPORT_TEMPLATE_PATH),
+         call. = FALSE)
+  }
   workdir <- tempfile("quadrant_report_")
   dir.create(workdir)
   bundle_path <- file.path(workdir, "bundle.rds")
@@ -117,7 +131,7 @@ render_quadrant_report <- function(bundle, output_format = "html") {
   # ends, also when rendering fails, so no input stays on disk.
   on.exit(unlink(bundle_path), add = TRUE)
 
-  template_src <- "inst/report_template.qmd"
+  template_src <- REPORT_TEMPLATE_PATH
   template_dst <- file.path(workdir, "report.qmd")
   file.copy(template_src, template_dst, overwrite = TRUE)
 

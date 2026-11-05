@@ -73,6 +73,11 @@ PLAUSIBLE_AGE_RANGE_YEARS <- c(0, 120)
 #' @keywords internal
 HEIGHT_RANGE_CM <- c(50, 250)
 
+#' Path of the Quarto report template, relative to the app directory.
+#' Shiny runs with the app directory as working directory.
+#' @keywords internal
+REPORT_TEMPLATE_PATH <- file.path("inst", "report_template.qmd")
+
 #' Standard disclaimer shown in the UI footer and on exported reports.
 #' @keywords internal
 DISCLAIMER_TEXT <- "For research and educational purposes. Not for clinical decision-making."

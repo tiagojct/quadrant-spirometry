@@ -117,3 +117,30 @@ test_that("render_quadrant_report leaves no bundle.rds on disk", {
   expect_true(file.exists(rendered))
   expect_false(file.exists(file.path(dirname(rendered), "bundle.rds")))
 })
+
+# The R/ files are sourced into the global environment, so a stand-in
+# for quarto_available is assigned there and restored afterwards.
+stub_quarto_available <- function(value, env = parent.frame()) {
+  original <- get("quarto_available", envir = globalenv())
+  assign("quarto_available", function() value, envir = globalenv())
+  withr::defer(assign("quarto_available", original, envir = globalenv()),
+               envir = env)
+}
+
+test_that("render_quadrant_report explains a missing Quarto CLI", {
+  stub_quarto_available(FALSE)
+  expect_error(
+    render_quadrant_report(list(), output_format = "html"),
+    "Quarto CLI is not available"
+  )
+})
+
+test_that("render_quadrant_report explains a missing template", {
+  stub_quarto_available(TRUE)
+  old_wd <- setwd(tempdir())
+  on.exit(setwd(old_wd), add = TRUE)
+  expect_error(
+    render_quadrant_report(list(), output_format = "html"),
+    "template not found"
+  )
+})
