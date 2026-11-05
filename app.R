@@ -31,6 +31,7 @@ ui <- page_sidebar(
       "PDF: use the browser's Print menu on the downloaded HTML."
     )
   ),
+  uiOutput("input_notice"),
   gli_comparison_panel(),
   layout_columns(
     col_widths = c(4, 4, 4),
@@ -76,6 +77,10 @@ server <- function(input, output, session) {
       is.numeric(input$fvc),  input$fvc  > 0,
       input$fev1 <= input$fvc
     )
+  })
+
+  output$input_notice <- renderUI({
+    input_notice(input$fev1, input$fvc)
   })
 
   # Each family returns list(value, message). On error the value is NULL

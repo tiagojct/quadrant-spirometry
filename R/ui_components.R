@@ -260,3 +260,26 @@ knitr_kable_or_fallback <- function(df) {
     "</table>"
   )
 }
+
+#' Notice shown when the observed values cannot be used.
+#'
+#' Returns NULL when either value is still missing, because an empty
+#' field is not an error: the cards already prompt for values. Returns
+#' a warning block when both values are present but not usable, so the
+#' operator sees why the results are hidden.
+#' @param fev1 Observed FEV1 in litres, or NULL or NA when empty.
+#' @param fvc Observed FVC in litres, or NULL or NA when empty.
+#' @keywords internal
+input_notice <- function(fev1, fvc) {
+  present <- function(x) is.numeric(x) && length(x) == 1 && !is.na(x)
+  if (!present(fev1) || !present(fvc)) return(NULL)
+  message <- if (fev1 <= 0 || fvc <= 0) {
+    "FEV1 and FVC must be greater than zero."
+  } else if (fev1 > fvc) {
+    "FEV1 is larger than FVC, so the ratio is above 1. Check the values. The results stay hidden until FEV1 is not larger than FVC."
+  } else {
+    NULL
+  }
+  if (is.null(message)) return(NULL)
+  shiny::tags$div(class = "alert alert-warning py-2 mb-3", role = "alert", message)
+}
