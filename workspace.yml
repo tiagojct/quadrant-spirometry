@@ -1,0 +1,15 @@
+# Quarterdeck project metadata. See ~/quarterdeck/templates/project/workspace.yml for the fields.
+name: quadrant-spirometry
+category: research
+type: other
+status: active
+build: local
+deploy_target: none
+deploy_method: ""
+url: ""
+host: ""
+build_command: ""
+artifact: ""
+remote_path: ""
+service: ""
+checks: []
