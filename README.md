@@ -18,7 +18,7 @@ The app accepts age, sex, height in centimetres, ethnicity (with separate dropdo
 - GLI-Global 2022 race-neutral (Bowerman et al., AJRCCM 2023)
 - NHANES III (Hankinson et al., AJRCCM 1999)
 
-Each results panel carries an interpretation block under the table, using the ATS/ERS 2022 interpretive strategy (Stanojevic et al., ERJ 2022). Patterns are labelled normal, obstructive, restrictive pattern (suggestive), mixed pattern (suggestive), or non-specific. Restrictive and mixed labels are explicitly marked as suggestive because confirming them requires static lung volumes that Quadrant does not accept. Severity is graded by FEV1 z-score in five bands when impairment is present, and reported as "not graded (pattern is normal)" otherwise.
+Each results panel carries an interpretation block under the table, using the ATS/ERS 2022 interpretive strategy (Stanojevic et al., ERJ 2022). Patterns are labelled normal, obstructive, restrictive pattern (suggestive), mixed pattern (suggestive), or non-specific. Restrictive and mixed labels are explicitly marked as suggestive because confirming them requires static lung volumes that Quadrant does not accept. Severity is graded by FEV1 z-score in three levels when impairment is present (mild from -2.5 upward, moderate from -2.5 to -4.0, severe below -4.0), and reported as "not graded (pattern is normal)" otherwise. Each equation has its own supported age range: 3 to 95 years for GLI-2012 and GLI-Global 2022, 8 to 80 years for NHANES III. Outside its range, a family shows the reason instead of a table, and the other families still compute.
 
 A cross-family comparison chart sits at the top of the page as the hero visual. It shows all three reference families on a common z-axis, one row per parameter, with a horizontal legend strip naming the severity bands and a dashed line at the lower limit of normal. A short text note beneath the chart flags any parameter where GLI-2012 and GLI-Global 2022 disagree on the above or below LLN classification.
 
@@ -46,12 +46,13 @@ shiny::runApp()
 
 ## How to run the tests
 
-```r
-setwd("tests")
-source("testthat.R")
+From the project root:
+
+```sh
+Rscript tests/testthat.R
 ```
 
-The suite sources the files in `R/` directly (Quadrant is a Shiny app, not an R package) and runs the calculation-layer tests against fixtures in `tests/testthat/fixtures/`.
+The root `.Rprofile` activates renv, so run the suite from the root and not from `tests/`. The suite sources the files in `R/` directly (Quadrant is a Shiny app, not an R package). It covers the calculation layer against fixtures in `tests/testthat/fixtures/`, the interpretation, the SVG and UI fragments, and the server logic with `shiny::testServer`. The report render test needs the Quarto CLI and is skipped when Quarto is not on the host.
 
 ## Deploy to Posit Connect Cloud
 
@@ -79,7 +80,7 @@ Smoke test after each deploy:
 
 ## Continuous integration
 
-A GitHub Actions workflow in `.github/workflows/check.yaml` runs the testthat suite on every push to `main` and every pull request. It restores the package library from `renv.lock` and executes `tests/testthat.R`. The Quarto CLI is not required by the test suite, so the workflow does not install it.
+A GitHub Actions workflow in `.github/workflows/check.yaml` runs the testthat suite on every push to `main` and every pull request. It restores the package library from `renv.lock` and executes `tests/testthat.R` from the project root. The Quarto CLI is not required by the test suite, so the workflow does not install it and the report render test is skipped in CI.
 
 ## License
 
