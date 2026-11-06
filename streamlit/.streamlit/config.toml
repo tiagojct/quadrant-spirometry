@@ -36,9 +36,10 @@ weight = "600"
 style = "normal"
 
 [theme.light]
-# Dark brass for the selected pills and the primary button: 5.6:1 on the
-# page, 5.1:1 on the sidebar, 5.9:1 under white text. Links stay ink blue.
-primaryColor = "#8a5a0a"
+# Dark brass for the selected pills: 5.9:1 on the page, 5.3:1 on the
+# sidebar, 4.6:1 as pill text on its own tint, 6.2:1 under white text.
+# Links stay ink blue.
+primaryColor = "#865709"
 linkColor = "#1c3557"
 backgroundColor = "#fbf9f4"
 secondaryBackgroundColor = "#f1ede3"
