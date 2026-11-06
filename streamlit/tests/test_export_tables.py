@@ -18,8 +18,17 @@ import importlib.metadata
 import importlib.resources
 import json
 import math
+from decimal import ROUND_HALF_UP, Decimal
 
 import pytest
+from pyspiro import (
+    BOWERMAN_2022,
+    ECCS_1993,
+    GLI_2012,
+    HANKINSON_1999,
+    KUBOTA_2014,
+    PEREIRA_2007,
+)
 
 from quadrant import wrappers
 from quadrant.constants import SPIROMETRY_PARAMS
@@ -285,8 +294,54 @@ def test_constants_match_the_app_and_pyspiro(docs):
 LLN_Z = 1.645  # the literal of pyspiro LMSReference.lln and HANKINSON_1999._result
 
 
-def _round2(x):
-    return round(x, 2)
+# --- percent predicted: the rounding rule of each family -----------------
+#
+# The two functions below are Python mirrors of the JavaScript code in
+# EXPORT_FORMAT.md. Keep them the same, line by line.
+#
+# LMS classes (GLI-2012, GLI-Global 2022, Kubota): the percent is a
+# numpy.float64, so round(x, 2) is numpy rounding: rint(x * 100) / 100,
+# half to even on the binary product.
+#
+#     function roundLms(x) {
+#       const y = x * 100;
+#       let r = Math.round(y);
+#       if (r - y === 0.5 && r % 2 !== 0) r -= 1;
+#       return r / 100;
+#     }
+#
+# Regression classes (NHANES III, Pereira, ECCS): the percent is a Python
+# float, so round(x, 2) is correctly rounded from the exact binary value. An
+# exact tie is possible only when x is an odd multiple of 1/8. Ties go to
+# the even hundredth. toFixed(2) takes ties up, so they are handled first.
+#
+#     function roundRegression(x) {
+#       const k = x * 8;
+#       if (Number.isInteger(k) && k % 2 !== 0) {
+#         const lo = Math.floor(x * 100);
+#         return (lo % 2 === 0 ? lo : lo + 1) / 100;
+#       }
+#       return Number(x.toFixed(2));
+#     }
+
+
+def round_lms(x):
+    y = x * 100.0
+    r = math.floor(y)
+    if y - r >= 0.5:  # Math.round: ties go toward +infinity
+        r += 1
+    if r - y == 0.5 and r % 2 != 0:
+        r -= 1
+    return r / 100
+
+
+def round_regression(x):
+    k = x * 8
+    if k == math.floor(k) and k % 2 != 0:
+        lo = math.floor(x * 100)
+        return (lo if lo % 2 == 0 else lo + 1) / 100
+    # toFixed(2): exact decimal value, ties up (the ties were handled above)
+    return float(Decimal(x).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 def _gli_lms(tables, prefix, age, height, ethnicity, lms_kind):
@@ -334,7 +389,7 @@ def _gli_lms(tables, prefix, age, height, ethnicity, lms_kind):
 def _lms_row(l, m, s, value):
     lln = math.exp(math.log(1 - LLN_Z * l * s) / l + math.log(m))
     z = (((value / m) ** l) - 1) / (l * s)
-    return m, lln, z, _round2(value / m * 100)
+    return m, lln, z, round_lms(value / m * 100)
 
 
 def _kubota_lms(tables, prefix, age, height):
@@ -373,7 +428,7 @@ def _nhanes3_row(tables, param, sex_key, eth_key, age, height, value):
         pred = base + r["a3_ht2_pred"] * height**2
         lln = base + r["a3_ht2_lln"] * height**2
     see = (pred - lln) / LLN_Z
-    return pred, lln, (value - pred) / see, _round2(value / pred * 100)
+    return pred, lln, (value - pred) / see, round_regression(value / pred * 100)
 
 
 def _evaluate(name, doc, subject, ethnicity):
@@ -417,7 +472,7 @@ def _evaluate(name, doc, subject, ethnicity):
                 else:
                     pred = r["a0"] + r["a_ht"] * height + r["a_age"] * age
                     lln = pred - r["lln"]
-                row = (pred, lln, float("nan"), _round2(value / pred * 100))
+                row = (pred, lln, float("nan"), round_regression(value / pred * 100))
         else:  # eccs1993
             rng = t["heightRangesCm"][sex_key]
             if not (t["ageRangeYears"][0] <= age <= t["ageRangeYears"][1]
@@ -427,7 +482,7 @@ def _evaluate(name, doc, subject, ethnicity):
                 eq_age = max(age, app["ageFloorYears"])
                 r = t["coefficients"][param][sex_key]
                 pred = r["a0"] + r["a_ht"] * height + r["a_age"] * eq_age
-                row = (pred, float("nan"), float("nan"), _round2(value / pred * 100))
+                row = (pred, float("nan"), float("nan"), round_regression(value / pred * 100))
         if row is None:
             return None
         pred, lln, z, pct = row
@@ -459,6 +514,7 @@ def _close(a, b):
 SUBJECTS = [
     {"age": 8.5, "height": 130.0, "sex": 1, "fev1": 1.9, "fvc": 2.2},
     {"age": 17.5, "height": 165.0, "sex": 2, "fev1": 3.0, "fvc": 3.6},
+    {"age": 18.5, "height": 165.0, "sex": 2, "fev1": 3.1, "fvc": 3.7},
     {"age": 19.5, "height": 172.0, "sex": 1, "fev1": 4.0, "fvc": 4.9},
     {"age": 23.0, "height": 178.0, "sex": 1, "fev1": 4.4, "fvc": 5.3},
     {"age": 27.0, "height": 163.0, "sex": 1, "fev1": 3.28, "fvc": 4.1},
@@ -495,3 +551,112 @@ def test_json_alone_reproduces_the_wrapper(docs, name):
                 assert _close(pct, row["percent_predicted"]), where
             compared += 1
     assert compared >= 4, name
+
+
+def test_a_female_change_point_of_20_is_caught(docs):
+    """The woman of 18.5 years uses the adult equation (change point 18)."""
+    import copy
+
+    subject = next(s for s in SUBJECTS if s["age"] == 18.5)
+    table = _wrapper_call("nhanes3.json", subject, 1)
+    good = _evaluate("nhanes3.json", docs["nhanes3.json"], subject, 1)
+    assert all(_close(good[r["parameter"]][0], r["predicted"]) for _, r in table.iterrows())
+    wrong = copy.deepcopy(docs["nhanes3.json"])
+    wrong["tables"]["changePointYears"]["female"] = 20
+    bad = _evaluate("nhanes3.json", wrong, subject, 1)
+    assert not _close(bad["FEV1"][0], table.iloc[0]["predicted"])
+
+
+# --- percent rounding rules against real pyspiro percent() ----------------
+#
+# Each case is a value that puts value / predicted * 100 on or next to a
+# tie at two decimals. The expected result is what pyspiro returns.
+
+_AGE, _HEIGHT, _SEX = 40, 175, 1
+
+
+def _step(value, n):
+    for _ in range(abs(n)):
+        value = math.nextafter(value, math.inf if n > 0 else -math.inf)
+    return value
+
+
+def _lms_cases():
+    """(x, pyspiro percent) for GLI-2012, GLI-Global 2022 and Kubota."""
+    gli, glg, jrs = GLI_2012(), BOWERMAN_2022(), KUBOTA_2014()
+    setups = (
+        (lambda v: gli.percent(_SEX, _AGE, _HEIGHT, 1, 1, v),
+         gli.lms(_SEX, _AGE, _HEIGHT, 1, 1, 3.0)[1]),
+        (lambda v: glg.percent(_SEX, _AGE, _HEIGHT, 1, v),
+         glg.lms(_SEX, _AGE, _HEIGHT, 1, 3.0)[1]),
+        (lambda v: jrs.percent(_SEX, _AGE, _HEIGHT, 1, v),
+         jrs.lms(_SEX, _AGE, _HEIGHT, 1, 3.0)[1]),
+    )
+    cases = []
+    for percent, m in setups:
+        for i in range(28):
+            tie = (5000 + 37 * i + 0.5) / 100  # a tie at two decimals, in percent
+            centre = float(m) * tie / 100
+            for j in range(-2, 3):
+                value = _step(centre, j)
+                x = float((value / m) * 100)  # same operations as LMSReference.percent
+                cases.append((x, float(percent(value))))
+    return cases
+
+
+def _regression_cases():
+    """(x, pyspiro percent) for NHANES III, Pereira and ECCS."""
+    hank, per, ecc = HANKINSON_1999(), PEREIRA_2007(), ECCS_1993()
+    setups = (
+        (lambda v: hank.percent(_SEX, _AGE, _HEIGHT, 1, 2, v),
+         hank._scalar_regression(_SEX, _AGE, _HEIGHT, 1, None, 2).pred),
+        (lambda v: per.percent(_SEX, _AGE, _HEIGHT, None, 3, v),
+         per._scalar_regression(_SEX, _AGE, _HEIGHT, None, None, 3).pred),
+        (lambda v: ecc.percent(_SEX, _AGE, _HEIGHT, None, 2, v),
+         ecc._scalar_regression(_SEX, _AGE, _HEIGHT, None, None, 2).pred),
+    )
+    cases, exact = [], 0
+    for percent, pred in setups:
+        for i in range(30):
+            # decimal near-ties: not exact in binary
+            decimal_tie = (5000 + 41 * i + 0.5) / 100
+            # exact binary ties: an odd multiple of 1/8
+            binary_tie = (400 + 2 * i + 1) / 8
+            for target, search in ((decimal_tie, 2), (binary_tie, 12)):
+                centre = pred * target / 100
+                for j in range(-search, search + 1):
+                    value = _step(centre, j)
+                    x = value / pred * 100
+                    if target == binary_tie and x != binary_tie:
+                        continue
+                    exact += target == binary_tie
+                    cases.append((x, float(percent(value))))
+    return cases, exact
+
+
+def test_lms_family_rounds_like_numpy():
+    cases = _lms_cases()
+    assert len(cases) >= 400
+    for x, expected in cases:
+        assert round_lms(x) == expected, x
+    # exact ties exist among the cases
+    assert any((x * 100) % 1 == 0.5 for x, _ in cases)
+
+
+def test_regression_family_rounds_like_python():
+    cases, exact = _regression_cases()
+    assert len(cases) >= 400
+    assert exact >= 30  # exact binary ties
+    for x, expected in cases:
+        assert round_regression(x) == expected, x
+
+
+def test_swapped_rounding_rules_fail():
+    """The two rules differ on these cases, so a swap is caught."""
+    lms = _lms_cases()
+    reg, _ = _regression_cases()
+    assert any(round_regression(x) != e for x, e in lms)
+    assert any(round_lms(x) != e for x, e in reg)
+    # Plain toFixed(2) (ties up) and plain Math.round are both wrong somewhere.
+    assert any(float(Decimal(x).quantize(Decimal("0.01"), ROUND_HALF_UP)) != e for x, e in reg)
+    assert any(math.floor(x * 100 + 0.5) / 100 != e for x, e in lms)

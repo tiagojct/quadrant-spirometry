@@ -30,14 +30,14 @@ The test `tests/test_export_tables.py` holds a Python evaluator that uses only t
 
 | field | meaning |
 |---|---|
-| `ageRangeYears` | Age range of the wrapper, in years, both ends included. |
+| `ageRangeYears` | The age range of the equation as the app registry shows it, in years, both ends included. It is a wrapper check for GLI-2012, GLI-Global 2022, NHANES III and Kubota (the first check, see "Error domains"). For Pereira (20 to 86) it is only the registry range: the wrapper checks the range of each sex (`ranges` in the file) after the plausible range 0 to 120. For ECCS (18 to 70) the wrapper checks it after the plausible range 0 to 120. |
 | `parameters` | `["FEV1", "FVC", "FEV1FVC"]`. This is the row order of the output. |
 | `ratioScale` | 1 for GLI-2012, GLI-Global 2022 and Kubota. 100 for NHANES III, Pereira and ECCS. See "FEV1/FVC" below. |
 | `sexCodes` | Sex codes of the app: `{"Female": 2, "Male": 1}`. |
 | `sexKeyByAppCode` | App sex code to the key used in the tables. GLI and Kubota: `males`, `females`. NHANES III, Pereira and ECCS: `male`, `female`. |
 | `sexToPyspiroCode` | App sex code to the pyspiro code (1 male, 0 female). The tables do not need it. |
 | `ethnicityCodes` | Labels and codes of the app (GLI-2012 and NHANES III only). |
-| `ethnicityKeyByCode` | NHANES III only. Code to the key in the tables (`caucasian`, `african_american`, `mexican_american`). |
+| `ethnicityKeyByCode` | GLI-2012 and NHANES III. Code to the lower-case name of the pyspiro Enum. For NHANES III this is the key in the tables (`caucasian`, `african_american`, `mexican_american`). GLI-2012 does not use it in the formulas: the GLI-2012 formulas test the numeric code (1 to 5). |
 
 Extra fields: `femaleMaxAgeYearsExclusive` (Kubota), `ageFloorYears` (ECCS).
 
@@ -47,13 +47,73 @@ Inputs: age in years, height in cm, FEV1 and FVC in litres. Sex is the app code 
 
 FEV1/FVC. The observed value is `fev1 / fvc`, a fraction. The wrapper multiplies the observed ratio by `ratioScale` before the equation. After the equation it divides `predicted` and `lln` by `ratioScale`. The z-score and the percent predicted do not change with the scale. The output ratio is always a fraction. For FEV1 and FVC the scale is 1.
 
-Percent predicted. `percent = round(value / predicted * 100, 2)`. Value and predicted are in the units of pyspiro (for the ratio, both are multiplied by `ratioScale`). pyspiro rounds to two decimals with Python `round`. In JavaScript use `Number((x).toFixed(2))`. Do not use `Math.round(x * 100) / 100`: it can differ in the second decimal for values near a half. This gives a difference of 0.01, which is larger than the contract tolerance of 1e-4.
+Percent predicted. `percent = round(x, 2)` with `x = (value / predicted) * 100`. Value and predicted are in the units of pyspiro (for the ratio, both are multiplied by `ratioScale`). The rounding rule depends on the family, because pyspiro returns a different number type. Use the code below. Do not use `Math.round(x * 100) / 100` or `toFixed(2)` alone: they differ from pyspiro on ties and near ties by 0.01, which is more than the contract tolerance of 1e-4.
+
+- LMS families (GLI-2012, GLI-Global 2022, Kubota). The percent is a `numpy.float64`. Python `round(x, 2)` then calls numpy and gives `rint(x * 100) / 100`: the product is rounded in binary and a tie goes to the even integer.
+
+```js
+function roundLms(x) {
+  const y = x * 100;
+  let r = Math.round(y);                    // ties go toward +infinity
+  if (r - y === 0.5 && r % 2 !== 0) r -= 1; // a tie goes to the even integer
+  return r / 100;
+}
+```
+
+- Regression families (NHANES III, Pereira, ECCS). The percent is a Python `float`. `round(x, 2)` is then correctly rounded from the exact binary value. A tie is possible only when `x` is an odd multiple of 1/8 (for example 0.125 gives 0.12 and 0.375 gives 0.38). `toFixed(2)` rounds from the exact value too, but it takes a tie up. So the code handles the exact ties first.
+
+```js
+function roundRegression(x) {
+  const k = x * 8;
+  if (Number.isInteger(k) && k % 2 !== 0) { // exact tie at two decimals
+    const lo = Math.floor(x * 100);
+    return (lo % 2 === 0 ? lo : lo + 1) / 100;
+  }
+  return Number(x.toFixed(2));
+}
+```
+
+Both functions were checked in node against pyspiro results: 420 near-tie and tie cases for the LMS classes (GLI-2012, GLI-Global 2022, Kubota) and 521 for the regression classes (NHANES III, Pereira, ECCS, of which 71 exact binary ties). There were no differences. The test `tests/test_export_tables.py` holds Python mirrors of the two functions (`round_lms`, `round_regression`) and the same cases. It also checks that swapping the two rules fails.
 
 Lower limit constant. The 5th percentile uses the number 1.645. It is written inside method bodies of pyspiro (`LMSReference.lln`, `HANKINSON_1999._result`) and is not a table value. It is not in the JSON. Use `LLN_Z = 1.645` in the formulas below. (The app constant `LLN_Z = -1.645` for classification is the same number with a sign.)
 
-Out of range. pyspiro returns NA for an input outside the range of a table. The wrapper turns NA into an error. Ranges include both ends. The checks of the wrapper (`validate_subject_inputs` and the extra range checks) come first. The messages are in `wrappers.py`.
+Out of range. pyspiro returns NA for an input outside the range of a table. The wrapper turns NA into an error. Ranges include both ends. See "Error domains" below for the checks, their order and the outputs that must not be NaN.
 
 Row order and output. The output has three rows (FEV1, FVC, FEV1FVC) with `observed`, `predicted`, `lln`, `z_score`, `percent_predicted`. Equations without a z-score give NaN there. Python uses NaN, the golden fixture uses `null`.
+
+### Error domains
+
+The wrappers raise `ValueError` in the cases below. The JavaScript engine must raise an error in the same cases and in the same order, with the same text (the texts are in `wrappers.py`; Task 6 catalogues them). The golden fixture holds these cases.
+
+Step 1, `validate_subject_inputs` (every equation). The checks run in this order and the first failure raises:
+
+1. Age, height, FEV1 and FVC must each be a single number: not a boolean, not text, not NaN. (Infinity passes this check.)
+2. Age must be inside the age range given by the wrapper, both ends included. GLI-2012 and GLI-Global 2022: 3 to 95. NHANES III: 8 to 80. Kubota: 17 to 95. Pereira and ECCS: the plausible range 0 to 120 (`PLAUSIBLE_AGE_RANGE_YEARS`).
+3. Height must be 50 to 250 cm (`HEIGHT_RANGE_CM`), for every equation.
+4. FEV1 and FVC must be greater than zero (one check for both).
+5. FEV1 must not be larger than FVC.
+6. Sex must be 1 or 2.
+7. Ethnicity (GLI-2012 and NHANES III only) must be one of the codes of the equation.
+
+Step 2, the own checks of each wrapper. They run after step 1, in this order:
+
+| equation | own checks, in order |
+|---|---|
+| GLI-2012 | none. Go to step 3. |
+| GLI-Global 2022 | none. Go to step 3. |
+| NHANES III | none. Go to step 3. The age group and the height range per group are applied inside pyspiro: a height outside the range of the group gives NA, so the step 3 error. |
+| Kubota | A woman of 94 years or more is rejected (`femaleMaxAgeYearsExclusive`). Then step 3. |
+| Pereira | 1. Age inside the range of the sex (`ranges[sex].ageYears`). 2. Height inside the range of the sex (`ranges[sex].heightCm`). Then step 3. |
+| ECCS | 1. Age 18 to 70 (`ageRangeYears`). 2. Height inside the range of the sex (`heightRangesCm[sex]`). 3. The age is raised to `ageFloorYears`. Then step 3. |
+
+Step 3, the equation. If pyspiro gives NA for the age or the height (outside a table, or no row), or if a required output is NaN, the wrapper raises "`<family>` has no reference value for these inputs. The equation covers a limited range of age and height." The families are `GLI-2012`, `GLI-Global 2022`, `NHANES III`, `Kubota 2014 (JRS)`, `Pereira 2007` and `ECCS 1993`. The test is "is NaN" (`pd.isna`). Infinity is not NaN and does not raise. The outputs that must not be NaN, for each parameter (FEV1, FVC, FEV1FVC; the first failure raises):
+
+| equation | outputs that must not be NaN |
+|---|---|
+| GLI-2012, GLI-Global 2022, Kubota | predicted, lower limit, z-score and percent. The lower limit is NaN when `1 - 1.645 * L * S <= 0` (the logarithm of a number that is not positive). JavaScript `Math.log` also gives NaN there, so test the result with `Number.isNaN`. |
+| NHANES III | predicted, lower limit, z-score and percent. pyspiro gives NA for all of them when `predicted == lln` (it does not happen in the tables). |
+| Pereira | predicted, lower limit and percent. The z-score is NaN and is allowed. |
+| ECCS | predicted and percent. The lower limit and the z-score are NaN and are allowed. |
 
 ### LMS equations (GLI-2012, GLI-Global 2022, Kubota)
 
@@ -84,7 +144,7 @@ Steps:
 2. `lower = floor(age / 0.25) * 0.25` and `weight = (age - lower) / 0.25`.
 3. Row index of an age `a` is `(a - ages[0]) / 0.25`. Take `S`, `M`, `L` splines at `lower`. If `weight == 0` use them as they are. Otherwise take the splines at `upper = min(lower + 0.25, last)` and use `(1 - weight) * lowerValue + weight * upperValue` for each of the three.
 4. Call the interpolated values `Sspline`, `Mspline`, `Lspline`. The closed-form terms use the exact age (not `lower`). Let `c` be `coefficients[prefix]`. Let `AfrAm`, `NEAsia`, `SEAsia`, `Other` be 1 when ethnicity is 2, 3, 4, 5 respectively, otherwise 0. (Ethnicity 1 gives all four as 0.)
-5. `L = q0 + q1 * ln(age) + Lspline`
+5. `L = q0 + q1 * ln(age) + Lspline`. Always add `Lspline`. In the three parameters of the app only the male FEV1FVC column (`FEV1FVC_males_Lspline`) has non-zero values. All other L spline columns of the app are 0. A port that leaves out the L spline is right for every column except male FEV1FVC and gives wrong values there.
 6. `M = exp( a0 + a1 * ln(height) + a2 * ln(age) + a3 * AfrAm + a4 * NEAsia + a5 * SEAsia + a6 * Other + Mspline )`
 7. `S = exp( p0 + p1 * ln(age) + p2 * AfrAm + p3 * NEAsia + p4 * SEAsia + p5 * Other + Sspline )`
 8. Use the LMS formulas above. Ratio scale is 1.
