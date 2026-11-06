@@ -23,7 +23,9 @@ from quadrant.constants import (
     NHANES3_ETHNICITY,
     SEX_CODES,
 )
-from quadrant.charts import comparison_chart
+from html import escape as html_escape
+
+from quadrant.charts import comparison_chart, not_plotted_caption
 from quadrant.fragments import (
     AGREE_NOTE,
     AGREE_TEXT,
@@ -134,9 +136,9 @@ family_tables = {
     "GLI-Global 2022": results["gli_2022"],
     "NHANES III": results["nhanes3"],
 }
-report_chart = cross_family_chart_svg(
-    family_tables
-)
+report_chart = cross_family_chart_svg(family_tables)
+if not_plotted_caption(family_tables):
+    report_chart += f"<p>{html_escape(not_plotted_caption(family_tables))}</p>"
 screen_chart = comparison_chart(family_tables)
 
 # Report export, built in memory when the inputs are usable.
@@ -212,6 +214,8 @@ with st.container(border=True):
     st.subheader("Z-scores by equation")
     if screen_chart is not None:
         st.altair_chart(screen_chart, width="stretch", alt=CHART_ALT)
+    if not_plotted_caption(family_tables):
+        st.caption(not_plotted_caption(family_tables))
     else:
         st.caption("Enter values to draw the comparison chart.")
     notes = comparison_notes(results["gli_2012"], results["gli_2022"])

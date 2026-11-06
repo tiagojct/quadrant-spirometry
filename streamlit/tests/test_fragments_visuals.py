@@ -256,3 +256,24 @@ def test_svg_has_one_marker_per_equation_and_parameter_for_six_equations():
     assert "nan" not in svg.lower()
     for i in range(6):
         assert f"Eq {i}" in svg
+
+
+def test_all_nan_equation_has_no_legend_entry_or_lane():
+    nan = float("nan")
+    svg = cross_family_chart_svg({"A": _table([-1, -2, -3]), "Empty": _table([nan, nan, nan])})
+    assert "Empty" not in svg
+    assert svg.count('class="legend-marker"') == 1
+
+
+def test_eight_legend_markers_sit_on_two_rows_with_distinct_shapes():
+    import re
+
+    svg = cross_family_chart_svg({f"Eq {i}": _table([-1, -2, -3]) for i in range(8)})
+    tags = re.findall(r'<(circle|rect|polygon)[^>]*class="legend-marker"', svg)
+    assert len(tags) == 8
+    labels = re.findall(r'<text x="([\d.]+)" y="([\d.]+)"[^>]*font-weight="600">Eq \d', svg)
+    assert len(labels) == 8
+    assert len({y for _, y in labels}) == 2
+    assert len({x for x, _ in labels}) == 4
+    polygons = re.findall(r'<polygon[^>]*class="legend-marker"[^>]*>', svg)
+    assert len(set(polygons)) == len(polygons) == 6

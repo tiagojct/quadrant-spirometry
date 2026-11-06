@@ -11,6 +11,8 @@ from quadrant.charts import (
     band_frame,
     comparison_chart,
     points_frame,
+    not_plotted_caption,
+    not_plotted_names,
     style_for,
 )
 from quadrant.constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN
@@ -97,7 +99,7 @@ def test_style_pairs_are_distinct_for_eight_equations():
     assert len({shape for _, shape in pairs}) == 8
     assert pairs[0] == ("#2563eb", "circle")
     assert pairs[1] == ("#9333ea", "square")
-    assert pairs[2] == ("#111827", "diamond")
+    assert pairs[2] == ("#dc2626", "diamond")
     assert style_for(8) == style_for(0)
 
 
@@ -117,3 +119,29 @@ def test_chart_height_grows_with_equations():
         assert comparison_chart(tables).to_dict()["height"] == 120 + 64 * n
     spec = comparison_chart({f"Eq {i}": _table([0, 0, 0]) for i in range(8)}).to_dict()
     assert spec["layer"][3]["encoding"]["color"]["legend"]["columns"] == 4
+
+
+def _luminance(hex_colour):
+    channels = [int(hex_colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def test_every_style_colour_has_contrast_on_the_backgrounds():
+    for i in range(8):
+        for background in ("#ffffff", "#fbf9f4", "#0d1522"):
+            hi, lo = sorted((_luminance(style_for(i)[0]), _luminance(background)), reverse=True)
+            assert (hi + 0.05) / (lo + 0.05) >= 3.0, (i, background)
+
+
+def test_not_plotted_names_and_caption():
+    nan = float("nan")
+    frames = {
+        "A": _table([-1, -2, -3]),
+        "B": None,
+        "C": _table([nan, nan, nan]),
+        "D": _table([nan, -1, nan]),
+    }
+    assert not_plotted_names(frames) == ["B", "C"]
+    assert not_plotted_caption(frames) == "Not plotted, no z-score: B, C"
+    assert not_plotted_caption({"A": _table([0, 0, 0])}) == ""

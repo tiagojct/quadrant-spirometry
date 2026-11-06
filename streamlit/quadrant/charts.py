@@ -23,19 +23,21 @@ EDGE_MARGIN = 0.15
 
 PARAMETER_LABELS = {"FEV1": "FEV1", "FVC": "FVC", "FEV1FVC": "FEV1/FVC"}
 
-# Marker colour and shape, in order of use. The first three keep the
-# original look. The colours come from the chart-room palette and the
-# markers differ in shape too, so the chart stays readable without
-# colour vision and on both themes (markers carry a white outline).
+# Marker colour and shape, in order of use. Every colour has a contrast
+# of at least 3:1 on white, #fbf9f4 and #0d1522 (WCAG, checked in
+# test_charts.py), e.g. #dc2626: 4.83, 4.59, 3.79; #64748b: 4.76, 4.52,
+# 3.85; #4d7c0f: 4.99, 4.75, 3.67. The markers differ in shape too, so
+# the chart stays readable without colour vision. Markers carry a white
+# outline.
 STYLES = (
     ("#2563eb", "circle"),
     ("#9333ea", "square"),
-    ("#111827", "diamond"),
+    ("#dc2626", "diamond"),
     ("#b45309", "triangle-up"),
     ("#0f766e", "triangle-down"),
-    ("#d9b56a", "triangle-right"),
+    ("#64748b", "triangle-right"),
     ("#be185d", "triangle-left"),
-    ("#7c2d12", "cross"),
+    ("#4d7c0f", "cross"),
 )
 
 LEGEND_COLUMNS = 4
@@ -63,12 +65,27 @@ def band_frame() -> pd.DataFrame:
     return pd.DataFrame(BANDS, columns=["z_lo", "z_hi", "band", "colour"])
 
 
+def _has_finite_z(table) -> bool:
+    return table is not None and bool(pd.to_numeric(table["z_score"], errors="coerce").notna().any())
+
+
+def not_plotted_names(frames: dict) -> list[str]:
+    """Names of equations with no result or no finite z-score."""
+    return [name for name, table in frames.items() if not _has_finite_z(table)]
+
+
+def not_plotted_caption(frames: dict) -> str:
+    """Short note under the chart, or an empty string when all are plotted."""
+    names = not_plotted_names(frames)
+    return f"Not plotted, no z-score: {', '.join(names)}" if names else ""
+
+
 def points_frame(family_tables: dict) -> pd.DataFrame:
     """Long table with one row for each family and parameter.
 
-    Families without a result and rows without a z-score are left out. z_plot is the z-score clamped
-    to the axis, so an extreme value sits just inside the edge. The tooltip shows
-    the real z-score.
+    Families without a result and rows without a z-score are left out.
+    z_plot is the z-score clamped to the axis, so an extreme value sits
+    just inside the edge. The tooltip shows the real z-score.
     """
     rows = []
     for family, table in family_tables.items():

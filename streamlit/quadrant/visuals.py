@@ -15,7 +15,7 @@ from .constants import (
     SEVERITY_MODERATE_Z_MIN,
     SPIROMETRY_PARAMS,
 )
-from .charts import LEGEND_COLUMNS, style_for
+from .charts import LEGEND_COLUMNS, _has_finite_z, style_for
 
 Z_AXIS_MIN = -5
 Z_AXIS_MAX = 3
@@ -132,7 +132,7 @@ def cross_family_chart_svg(family_tables: dict) -> str:
     when no equation has a result. Use is_svg() to tell them apart.
     """
     styles = {name: style_for(i) for i, name in enumerate(family_tables)}
-    active = {name: df for name, df in family_tables.items() if df is not None}
+    active = {name: df for name, df in family_tables.items() if _has_finite_z(df)}
     if not active:
         return "<em>Enter values to render the comparison chart.</em>"
 
