@@ -111,6 +111,7 @@ section {{ border-top: 1px solid {RULE}; padding: 0.8rem 0 0.6rem; }}
 .qd-pill {{ display: inline-block; border-radius: 0.7rem; padding: 0.1rem 0.6rem;
            font-weight: 600; font-size: 0.8rem; line-height: 1.35; }}
 .qd-pill-rejected {{ border: 1px solid {RULE}; }}
+.qd-pill-ungraded {{ border: 1px solid #1e3a8a; }}
 {_pill_css()}
 .qd-summary {{ margin-top: 0.45rem; font-size: 0.9rem; }}
 .qd-summary ul {{ margin: 0.2rem 0 0; padding-left: 1.2rem; }}

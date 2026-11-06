@@ -304,3 +304,24 @@ def test_the_report_matrix_marks_pereira_values_below_the_lower_limit():
     html = render_report_html(bundle)
     lln = frames["FEV1"].loc["Pereira 2007 (Brazil)", "LLN"]
     assert f"<td>{lln}</td>" in _section(html, "qd-matrix")
+
+
+def _contrast(a, b):
+    def lum(hex_colour):
+        rgb = [int(hex_colour[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+        return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def test_the_ungraded_pill_differs_from_the_unclassified_pill():
+    from quadrant.fragments import BADGE_PALETTE
+    from quadrant.styles import UNCLASSIFIED_PILL
+
+    bg, fg = BADGE_PALETTE["ungraded"]
+    assert bg == "#bfdbfe"
+    assert bg != UNCLASSIFIED_PILL[0]
+    assert _contrast(bg, fg) >= 4.5
+    css = re.search(r"<style>(.*?)</style>", render_report_html(_bundle()), re.S).group(1)
+    assert ".qd-pill-ungraded { border: 1px solid #1e3a8a; }" in css

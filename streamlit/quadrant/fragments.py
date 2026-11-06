@@ -25,7 +25,7 @@ BADGE_PALETTE = {
     "mild": ("#facc15", "#0f172a"),
     "moderate": ("#f59e0b", "#0f172a"),
     "severe": ("#dc2626", "#ffffff"),
-    "ungraded": ("#dbeafe", "#1e3a8a"),
+    "ungraded": ("#bfdbfe", "#1e3a8a"),
 }
 
 
