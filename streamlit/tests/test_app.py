@@ -135,6 +135,17 @@ def test_pereira_alone_is_classified_by_its_lower_limit():
     assert "nan" not in _page_text(at).lower()
 
 
+def test_pereira_lln_cells_are_marked_in_the_page_matrix():
+    at = _run(equations=["pereira_2007"], fev1=2.7)
+    assert not at.exception
+    cells = [t.value.set_index("Equation").loc["Pereira 2007 (Brazil)", "LLN"]
+             for t in at.table]
+    # Markdown cells: the asterisk is escaped. FEV1 and FEV1/FVC below, FVC not.
+    assert [c.endswith(" \\*") for c in cells] == [True, False, True]
+    captions = [str(c.value) for c in at.caption]
+    assert any("observed value below the published lower limit" in c for c in captions)
+
+
 def test_pereira_with_gli_2012_states_the_basis_in_the_summary():
     at = _run(equations=["gli_2012", "pereira_2007"], fev1=2.7)
     assert not at.exception

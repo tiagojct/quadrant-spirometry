@@ -100,5 +100,66 @@ def test_matrix_rows_for_the_real_eccs_and_pereira_tables():
         assert "nan" not in frame.to_string().lower()
         assert frame.loc["ECCS", "LLN"] == "-" and frame.loc["ECCS", "Z-score"] == "-"
         assert frame.loc["Pereira", "Z-score"] == "-"
-        lln = pereira.loc[pereira["parameter"] == code, "lln"].iloc[0]
-        assert frame.loc["Pereira", "LLN"] == f"{lln:.2f}"
+        row = pereira.loc[pereira["parameter"] == code].iloc[0]
+        mark = " *" if row["observed"] < row["lln"] else ""
+        assert frame.loc["Pereira", "LLN"] == f"{row['lln']:.2f}{mark}"
+    # FEV1 3.0 L is below the Pereira lower limit (3.19 L) for this man.
+    assert frames["FEV1"].loc["Pereira", "LLN"].endswith(" *")
+
+
+# An equation with a published lower limit and no z-score (Pereira 2007):
+# the LLN cell ends with " *" when the observed value is strictly below it.
+
+def test_lln_cell_is_marked_when_observed_is_below_a_published_limit():
+    # observed 3.0, 4.0, 0.75; limits 3.1 (above), 4.0 (equal), 0.70 (below observed)
+    table = _table([3.5, 4.5, 0.8], [3.1, 4.0, 0.70], [NAN, NAN, NAN], [85.7, 88.9, 93.8])
+    frames = matrix_frames({"P": table})
+    assert frames["FEV1"].loc["P", "LLN"] == "3.10 *"
+    # Exactly equal to the limit is not below it.
+    assert frames["FVC"].loc["P", "LLN"] == "4.00"
+    assert frames["FEV1/FVC"].loc["P", "LLN"] == "0.70"
+    for frame in frames.values():
+        assert frame.loc["P", "Z-score"] == "-"
+
+
+def test_lln_cell_is_not_marked_for_equations_with_z_scores():
+    # GLI-2012 FEV1: observed 3.0 is below the lln 3.101, but the mark
+    # goes on the z-score cell only.
+    frames = matrix_frames(TABLES)
+    assert frames["FEV1"].loc["GLI-2012", "LLN"] == "3.10"
+    assert frames["FEV1"].loc["GLI-2012", "Z-score"] == "-1.70 *"
+
+
+def test_the_lln_mark_uses_the_rule_of_the_classifier():
+    from quadrant.interpretation import interpret_spirometry, is_below
+    from quadrant.wrappers import compute_pereira_2007
+
+    table = compute_pereira_2007(40, 170, 1, 2.7, 4.0)
+    frames = matrix_frames({"Pereira": table})
+    for row in table.itertuples(index=False):
+        title = {"FEV1": "FEV1", "FVC": "FVC", "FEV1FVC": "FEV1/FVC"}[row.parameter]
+        marked = frames[title].loc["Pereira", "LLN"].endswith(" *")
+        assert marked == is_below(row.observed, row.lln)
+    # FEV1 and FEV1/FVC below, FVC not: the obstructive pattern.
+    assert [frames[t].loc["Pereira", "LLN"].endswith(" *") for t in frames] == [
+        True, False, True]
+    assert interpret_spirometry(table)["pattern"] == "obstructive"
+
+
+def test_a_real_pereira_value_equal_to_its_limit_gets_no_mark():
+    from quadrant.wrappers import compute_pereira_2007
+
+    fvc_lln = float(compute_pereira_2007(40, 170, 1, 3.5, 4.5)
+                    .set_index("parameter").loc["FVC", "lln"])
+    frames = matrix_frames({"Pereira": compute_pereira_2007(40, 170, 1, 3.3, fvc_lln)})
+    assert frames["FVC"].loc["Pereira", "LLN"] == f"{fvc_lln:.2f}"
+
+
+def test_the_legend_covers_both_kinds_of_mark():
+    from quadrant.matrix import MATRIX_LEGEND
+
+    assert MATRIX_LEGEND == (
+        "A hyphen (-) means that the equation publishes no value. An asterisk "
+        "(\\*) marks a result below the lower limit of normal (z-score below "
+        "-1.645, or observed value below the published lower limit)."
+    )

@@ -13,7 +13,7 @@ import pandas as pd
 
 from .charts import PARAMETER_LABELS
 from .constants import LLN_Z
-from .interpretation import BASIS_LOWER_LIMIT
+from .interpretation import BASIS_LOWER_LIMIT, is_below
 from .registry import EQUATIONS
 
 # Badge colours per severity level; "normal" is used when there is no
@@ -201,7 +201,26 @@ def _z_text(z) -> str:
     """Z-score text. A z-score below the LLN ends with an asterisk."""
     if pd.isna(z):
         return MISSING_VALUE_TEXT
-    return f"{z:.2f} *" if z < LLN_Z else f"{z:.2f}"
+    return f"{z:.2f} *" if is_below(z, LLN_Z) else f"{z:.2f}"
+
+
+def _lln_text(lln, z, observed) -> str:
+    """LLN text. Without a z-score, an observed value below it adds an asterisk.
+
+    The asterisk goes on the LLN cell only for an equation that publishes
+    a lower limit but no z-score; with a z-score the mark is on the
+    z-score cell. The rule is the one of the classifier (is_below).
+    """
+    text = _number(lln)
+    if (
+        pd.isna(z)
+        and not pd.isna(lln)
+        and observed is not None
+        and not pd.isna(observed)
+        and is_below(observed, lln)
+    ):
+        return f"{text} *"
+    return text
 
 
 def reference_table_html(reference_df: pd.DataFrame | None) -> str:

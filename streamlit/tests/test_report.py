@@ -224,7 +224,9 @@ def test_the_matrix_has_three_tables_and_the_legend():
         assert f"<caption>{title}" in matrix
     assert html.count('class="qd-table qd-matrix-table"') == 3
     assert "A hyphen (-) means that the equation publishes no value." in html
-    assert "An asterisk (*) marks a z-score below -1.645" in html
+    assert ("An asterisk (*) marks a result below the lower limit of normal "
+            "(z-score below -1.645, or observed value below the published lower "
+            "limit).") in html
     assert "\\*" not in html
 
 
@@ -291,3 +293,14 @@ def test_the_report_names_the_parameters_on_different_sides():
     html = render_report_html(differ)
     assert escape(DIFFER_HEADING) in html and AGREE_TEXT not in html
     assert "Classification differs" not in html
+
+
+def test_the_report_matrix_marks_pereira_values_below_the_lower_limit():
+    bundle = _bundle(["gli_2012", "pereira_2007"])
+    frames = bundle["matrix"]
+    assert frames["FEV1"].loc["Pereira 2007 (Brazil)", "LLN"].endswith(" *")
+    assert not frames["FVC"].loc["Pereira 2007 (Brazil)", "LLN"].endswith(" *")
+    assert frames["FEV1/FVC"].loc["Pereira 2007 (Brazil)", "LLN"].endswith(" *")
+    html = render_report_html(bundle)
+    lln = frames["FEV1"].loc["Pereira 2007 (Brazil)", "LLN"]
+    assert f"<td>{lln}</td>" in _section(html, "qd-matrix")

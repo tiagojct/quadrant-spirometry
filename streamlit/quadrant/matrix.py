@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .fragments import MISSING_VALUE_TEXT, _number, _z_text
+from .fragments import MISSING_VALUE_TEXT, _lln_text, _number, _z_text
 
 # Long-form parameter code and the title of its table.
 MATRIX_PARAMETERS = {"FEV1": "FEV1", "FVC": "FVC", "FEV1FVC": "FEV1/FVC"}
@@ -19,8 +19,9 @@ MATRIX_COLUMNS = ["Pred.", "LLN", "Z-score", "% pred"]
 # the asterisk as emphasis.
 MATRIX_LEGEND = (
     f"A hyphen ({MISSING_VALUE_TEXT}) means that the equation publishes no "
-    "value. An asterisk (\\*) marks a z-score below -1.645, the lower limit "
-    "of normal."
+    "value. An asterisk (\\*) marks a result below the lower limit of normal "
+    "(z-score below -1.645, or observed value below the published lower "
+    "limit)."
 )
 
 
@@ -30,7 +31,9 @@ def matrix_frames(tables: dict[str, pd.DataFrame | None]) -> dict[str, pd.DataFr
     tables maps an equation name to its long-form table. A name with no
     table (None) gets no row. Each frame has the index "Equation" and the
     columns Pred., LLN, Z-score and % pred. A missing value shows as a
-    hyphen; a z-score below the lower limit of normal ends with " *".
+    hyphen; a z-score below the lower limit of normal ends with " *". For
+    an equation with a lower limit but no z-score, the LLN cell ends with
+    " *" when the observed value is strictly below it.
     """
     frames = {}
     for code, title in MATRIX_PARAMETERS.items():
@@ -41,7 +44,7 @@ def matrix_frames(tables: dict[str, pd.DataFrame | None]) -> dict[str, pd.DataFr
             row = table.loc[table["parameter"] == code].iloc[0]
             rows[name] = [
                 _number(row["predicted"]),
-                _number(row["lln"]),
+                _lln_text(row["lln"], row["z_score"], row.get("observed")),
                 _z_text(row["z_score"]),
                 _number(row["percent_predicted"], ".1f"),
             ]
