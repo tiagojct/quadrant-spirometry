@@ -70,3 +70,35 @@ def test_markdown_cells_escape_the_dash_and_the_asterisk():
     assert shown.loc["GLI-2012", "Z-score"] == "-1.70 \\*"
     assert shown.loc["GLI-2012", "Pred."] == "3.91"
     assert shown.index.name == "Equation"
+
+
+# Ported from the tests of the removed results_for_display helper.
+def test_matrix_rounds_values_and_keeps_the_limit_itself_unmarked():
+    table = _table([3.5, 4.5, 0.8], [2.8, 3.6, 0.7], [-2.0, 0.0, -1.645], [85.0, 90.0, 94.0])
+    frames = matrix_frames({"A": table})
+    assert frames["FEV1"].loc["A", "Z-score"] == "-2.00 *"
+    assert frames["FVC"].loc["A", "Z-score"] == "0.00"
+    assert frames["FEV1/FVC"].loc["A", "Z-score"] == "-1.65"
+    assert [frames[p].loc["A", "% pred"] for p in frames] == ["85.0", "90.0", "94.0"]
+
+
+def test_a_missing_z_score_never_gets_the_below_lln_asterisk():
+    table = _table([3.5, 4.4, 0.8], [NAN, 3.5, NAN], [NAN, -2.0, NAN], [85.7, 90.9, 93.8])
+    frames = matrix_frames({"A": table})
+    assert [frames[p].loc["A", "Z-score"] for p in frames] == ["-", "-2.00 *", "-"]
+    assert [frames[p].loc["A", "LLN"] for p in frames] == ["-", "3.50", "-"]
+
+
+def test_matrix_rows_for_the_real_eccs_and_pereira_tables():
+    from quadrant.wrappers import compute_eccs_1993, compute_pereira_2007
+
+    eccs = compute_eccs_1993(40, 170, 1, 3.0, 4.0)
+    pereira = compute_pereira_2007(40, 170, 1, 3.0, 4.0)
+    frames = matrix_frames({"ECCS": eccs, "Pereira": pereira})
+    for code, title in (("FEV1", "FEV1"), ("FVC", "FVC"), ("FEV1FVC", "FEV1/FVC")):
+        frame = frames[title]
+        assert "nan" not in frame.to_string().lower()
+        assert frame.loc["ECCS", "LLN"] == "-" and frame.loc["ECCS", "Z-score"] == "-"
+        assert frame.loc["Pereira", "Z-score"] == "-"
+        lln = pereira.loc[pereira["parameter"] == code, "lln"].iloc[0]
+        assert frame.loc["Pereira", "LLN"] == f"{lln:.2f}"

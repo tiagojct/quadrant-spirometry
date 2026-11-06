@@ -12,7 +12,6 @@ from quadrant.fragments import (
     render_gli_comparison,
     render_interpretation,
     render_pattern_badge,
-    results_for_display,
 )
 from quadrant.visuals import (
     SEVERITY_BANDS,
@@ -48,13 +47,6 @@ def test_input_problem_explains_unusable_values():
     assert "FEV1 is larger than FVC" in input_problem(5.0, 4.0)
     assert "greater than zero" in input_problem(0, 4.0)
     assert "greater than zero" in input_problem(3.0, -1)
-
-
-def test_results_for_display_marks_values_below_the_lln():
-    frame = results_for_display(_table([-2.0, 0.0, -1.645]))
-    assert list(frame.columns) == ["Parameter", "Pred.", "LLN", "Z-score", "% pred"]
-    assert list(frame["Z-score"]) == ["-2.00 *", "0.00", "-1.65"]
-    assert list(frame["% pred"]) == ["85.0", "90.0", "94.0"]
 
 
 def test_pattern_label_is_descriptive():
@@ -195,18 +187,6 @@ def _eccs_and_pereira_tables():
     )
 
 
-def test_results_for_display_shows_a_hyphen_for_missing_limits():
-    eccs, pereira = _eccs_and_pereira_tables()
-    shown = results_for_display(eccs)
-    assert "nan" not in shown.to_string().lower()
-    assert list(shown["LLN"]) == ["-", "-", "-"]
-    assert list(shown["Z-score"]) == ["-", "-", "-"]
-    shown = results_for_display(pereira)
-    assert "nan" not in shown.to_string().lower()
-    assert list(shown["Z-score"]) == ["-", "-", "-"]
-    assert list(shown["LLN"]) == [f"{v:.2f}" for v in pereira["lln"]]
-
-
 def test_reference_table_html_shows_a_hyphen_for_missing_limits():
     from quadrant.fragments import reference_table_html
 
@@ -218,23 +198,6 @@ def test_reference_table_html_shows_a_hyphen_for_missing_limits():
     assert "nan" not in html.lower()
     for value in pereira["lln"]:
         assert f"<td>{value:.2f}</td>" in html
-
-
-def test_missing_z_score_never_gets_the_below_lln_asterisk():
-    nan = float("nan")
-    table = pd.DataFrame(
-        {
-            "parameter": ["FEV1", "FVC", "FEV1FVC"],
-            "observed": [3.0, 4.0, 0.75],
-            "predicted": [3.5, 4.4, 0.8],
-            "lln": [nan, 3.5, nan],
-            "z_score": [nan, -2.0, nan],
-            "percent_predicted": [85.7, 90.9, 93.8],
-        }
-    )
-    shown = results_for_display(table)
-    assert list(shown["Z-score"]) == ["-", "-2.00 *", "-"]
-    assert list(shown["LLN"]) == ["-", "3.50", "-"]
 
 
 def test_interpretation_fragments_have_no_nan_text_for_either_table():

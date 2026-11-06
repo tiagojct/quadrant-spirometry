@@ -168,30 +168,6 @@ def reference_table_html(reference_df: pd.DataFrame | None) -> str:
     return html_table(display)
 
 
-# The backslash stops Markdown from reading the asterisk as a list marker.
-BELOW_LLN_NOTE = "\\* Below the lower limit of normal (z-score under -1.645)."
-
-
-def results_for_display(reference_df: pd.DataFrame) -> pd.DataFrame:
-    """Result table for st.table, as formatted text.
-
-    The observed values are left out: they are inputs and the same for
-    every family. A z-score below the lower limit of normal ends with an
-    asterisk. Numbers are rounded to two decimals, percent of predicted
-    to one. A value the equation does not give (NaN) is shown as a
-    hyphen, without an asterisk.
-    """
-    return pd.DataFrame(
-        {
-            "Parameter": list(reference_df["parameter"]),
-            "Pred.": [f"{v:.2f}" for v in reference_df["predicted"]],
-            "LLN": [_number(v) for v in reference_df["lln"]],
-            "Z-score": [_z_text(z) for z in reference_df["z_score"]],
-            "% pred": [f"{v:.1f}" for v in reference_df["percent_predicted"]],
-        }
-    )
-
-
 def comparison_notes(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.DataFrame | None) -> list[str] | None:
     """Sentences on parameters where GLI-2012 and GLI-Global 2022 differ.
 
