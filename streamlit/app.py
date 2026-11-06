@@ -214,8 +214,8 @@ with st.container(border=True):
     st.subheader("Z-scores by equation")
     if screen_chart is not None:
         st.altair_chart(screen_chart, width="stretch", alt=CHART_ALT)
-    if not_plotted_caption(family_tables):
-        st.caption(not_plotted_caption(family_tables))
+        if not_plotted_caption(family_tables):
+            st.caption(not_plotted_caption(family_tables))
     else:
         st.caption("Enter values to draw the comparison chart.")
     notes = comparison_notes(results["gli_2012"], results["gli_2022"])
