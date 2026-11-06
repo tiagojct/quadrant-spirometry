@@ -6,11 +6,31 @@
 # The app collects no analytics.
 gatherUsageStats = false
 
+[server]
+# Serves static/ at /app/static/. The fonts are self-hosted.
+enableStaticServing = true
+
 [theme]
-font = "sans-serif"
-headingFont = "sans-serif"
+font = "Source Sans 3, sans-serif"
+headingFont = "Source Sans 3, sans-serif"
+baseFontSize = 16
+# Title, section, card.
+headingFontSizes = ["2.6rem", "1.6rem", "1.2rem"]
+headingFontWeights = 600
 baseRadius = "0.4rem"
 showWidgetBorder = true
+
+[[theme.fontFaces]]
+family = "Source Sans 3"
+url = "app/static/fonts/SourceSans3-Regular.woff2"
+weight = "400"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "Source Sans 3"
+url = "app/static/fonts/SourceSans3-Semibold.woff2"
+weight = "600"
+style = "normal"
 
 [theme.light]
 primaryColor = "#1c3557"
