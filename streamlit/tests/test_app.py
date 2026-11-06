@@ -322,6 +322,33 @@ def test_the_pin_survives_a_rerun():
     assert _cell(at, "GLI-2012") == f"{expected:+.2f}"
 
 
+def test_the_pin_survives_unusable_inputs_and_its_column_returns():
+    at = _run()
+    at.button(key="pin_button").click()
+    at.run()
+    assert "Change in z" in at.table[0].value.columns
+    # FEV1 above FVC: no equation has a result, so the matrix is not drawn.
+    at.number_input(key="fev1").set_value(5.0)
+    at.run()
+    assert not at.exception
+    assert len(at.table) == 0
+    assert "pin" in at.session_state
+    # Usable inputs again: the change column is back against the same pin.
+    at.number_input(key="fev1").set_value(2.80)
+    at.run()
+    assert not at.exception
+    assert "Change in z" in at.table[0].value.columns
+    expected = _z("gli_2012", fev1=2.80)["FEV1"] - _z("gli_2012")["FEV1"]
+    assert _cell(at, "GLI-2012") == f"{expected:+.2f}"
+
+
+def test_a_decimal_age_with_all_equations_selected_runs_without_an_exception():
+    at = _run(equations=list(EQUATIONS), age_years=19.5)
+    assert not at.exception
+    assert at.number_input(key="age_years").value == 19.5
+    assert _matrix_rows(at)
+
+
 def test_clearing_the_pin_removes_it():
     at = _run()
     at.button(key="pin_button").click()

@@ -239,5 +239,5 @@ def compute_equation(
 ) -> pd.DataFrame:
     """Long-form reference table for one equation and one subject."""
     if key not in EQUATIONS:
-        raise ValueError(f"Unknown equation: {key}.")
+        raise ValueError("No equation is registered under that key.")
     return EQUATIONS[key].compute(subject, ethnicity_code)

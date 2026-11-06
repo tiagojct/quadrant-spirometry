@@ -130,10 +130,21 @@ def test_chart_height_grows_with_equations():
 
 
 def test_the_axis_title_is_short_and_the_lln_note_is_a_caption():
+    import json
+
     from quadrant.charts import AXIS_TITLE, LLN_NOTE
 
-    assert AXIS_TITLE == "z-score"
-    assert LLN_NOTE == "The dashed line marks the lower limit of normal (z = -1.645)."
+    spec = comparison_chart({"A": _table([-1, -2, -3])}).to_dict()
+    text = json.dumps(spec)
+    # The x axis carries the short title; the note is not in the chart.
+    assert f'"title": "{AXIS_TITLE}"' in text
+    assert len(AXIS_TITLE) <= 10
+    assert LLN_NOTE not in text and "lower limit" not in text
+    # The note states the z-score at which the dashed line is drawn.
+    rule = spec["layer"][1]
+    assert rule["mark"]["type"] == "rule" and rule["mark"]["strokeDash"]
+    assert spec["datasets"][rule["data"]["name"]] == [{"z": LLN_Z}]
+    assert f"z = {LLN_Z:g})" in LLN_NOTE
 
 
 def test_the_z_labels_have_a_light_halo_under_dark_text():

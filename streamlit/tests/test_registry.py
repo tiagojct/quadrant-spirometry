@@ -42,7 +42,7 @@ def test_compute_equation_matches_the_direct_wrapper():
 
 
 def test_compute_equation_rejects_an_unknown_key():
-    with pytest.raises(ValueError, match="Unknown equation"):
+    with pytest.raises(ValueError, match="No equation is registered under that key."):
         compute_equation("nope", Subject(40, 170, 1, 3.0, 4.0))
 
 

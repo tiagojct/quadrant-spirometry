@@ -302,7 +302,6 @@ def test_validate_skips_ethnicity_when_not_requested():
 
 
 def test_long_table_allows_nan_limits_only_when_not_required():
-    import pytest as _pytest
     from quadrant.wrappers import _long_table
 
     class Ref:
@@ -325,11 +324,11 @@ def test_long_table_allows_nan_limits_only_when_not_required():
             {"FEV1": 3.0, "FVC": 4.0, "FEV1FVC": 0.75}, "Test")
     df = _long_table(Ref(), *args, limits_required=False)
     assert df["lln"].isna().all() and df["z_score"].isna().all()
-    with _pytest.raises(ValueError):
+    with pytest.raises(ValueError):
         _long_table(Ref(), *args)
-    with _pytest.raises(ValueError):
+    with pytest.raises(ValueError):
         _long_table(Ref(predicted=float("nan")), *args, limits_required=False)
-    with _pytest.raises(ValueError):
+    with pytest.raises(ValueError):
         _long_table(Ref(percent=float("nan")), *args, limits_required=False)
 
 
@@ -706,6 +705,10 @@ def _registry_messages():
                 compute_equation(key, Subject(**base), 99)
             except ValueError as error:
                 messages.append((key, str(error)))
+    try:
+        compute_equation("not_a_registered_key", Subject(**base), None)
+    except ValueError as error:
+        messages.append(("unknown key", str(error)))
     return messages
 
 
@@ -714,6 +717,7 @@ def test_every_wrapper_message_is_user_facing():
 
     messages = _registry_messages()
     assert len(messages) > 40
+    assert ("unknown key", "No equation is registered under that key.") in messages
     for key, message in messages:
         assert re.match(r"[A-Z]", message), (key, message)
         assert message.endswith("."), (key, message)
