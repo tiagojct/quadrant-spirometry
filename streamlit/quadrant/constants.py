@@ -83,6 +83,13 @@ HEIGHT_RANGE_CM = (50, 250)
 # framework (5th percentile). Every module reads this one value.
 LLN_Z = -1.645
 
+# Absolute tolerance for "below the limit". A value within this distance
+# of the limit counts as equal, so not below. It absorbs floating point
+# error: the Pereira 2007 limit for a man of 27 years and 163 cm is 3.28 L
+# on paper and 3.2800000000000002 in floating point. Litres, fractions and
+# z-scores are all far coarser than 1e-9.
+LIMIT_COMPARE_TOLERANCE = 1e-9
+
 # Lower z-score bound of the "mild" severity level. A FEV1 z-score of
 # this value or higher is mild.
 SEVERITY_MILD_Z_MIN = -2.5

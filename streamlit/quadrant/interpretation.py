@@ -14,11 +14,17 @@ graded on that basis.
 
 from __future__ import annotations
 
+import math
 import numbers
 
 import pandas as pd
 
-from .constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN
+from .constants import (
+    LIMIT_COMPARE_TOLERANCE,
+    LLN_Z,
+    SEVERITY_MILD_Z_MIN,
+    SEVERITY_MODERATE_Z_MIN,
+)
 
 
 # Values of the "basis" field of interpret_spirometry.
@@ -46,9 +52,13 @@ def is_below(value: float, limit: float) -> bool:
 
     A value equal to the limit is not below it, so a z-score of exactly
     -1.645 and an observed value equal to the lower limit both count as
-    within the lower limit of normal.
+    within the lower limit of normal. Equal means within
+    LIMIT_COMPARE_TOLERANCE, so floating point error in a computed limit
+    does not put a value that equals the printed limit below it.
     """
-    return value < limit
+    return value < limit and not math.isclose(
+        value, limit, rel_tol=0, abs_tol=LIMIT_COMPARE_TOLERANCE
+    )
 
 
 def _pattern_from_flags(fev1_low: bool, fvc_low: bool, ratio_low: bool) -> str:

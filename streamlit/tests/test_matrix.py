@@ -163,3 +163,11 @@ def test_the_legend_covers_both_kinds_of_mark():
         "(\\*) marks a result below the lower limit of normal (z-score below "
         "-1.645, or observed value below the published lower limit)."
     )
+
+
+def test_a_pereira_value_equal_to_the_printed_limit_gets_no_mark():
+    from quadrant.wrappers import compute_pereira_2007
+
+    # The lower limit is 3.2800000000000002 in floating point.
+    frames = matrix_frames({"Pereira": compute_pereira_2007(27, 163, 1, 3.28, 4.0)})
+    assert frames["FEV1"].loc["Pereira", "LLN"] == "3.28"

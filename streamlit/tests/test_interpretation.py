@@ -313,3 +313,30 @@ def test_the_basis_follows_has_lower_limit_for_every_registered_equation():
     assert interpret_spirometry(compute_equation("pereira_2007", subject))["basis"] == (
         "lower limit")
     assert interpret_spirometry(compute_equation("eccs_1993", subject))["pattern"] is None
+
+
+# Floating point: the paper's lower limit for a man of 27 years and 163 cm
+# is exactly 3.28 L (4.04 - 0.76), but the arithmetic gives
+# 3.2800000000000002. An observed 3.28 L is equal to the limit, not below.
+
+def test_a_value_equal_to_the_limit_up_to_rounding_error_is_not_below():
+    from quadrant.constants import LIMIT_COMPARE_TOLERANCE
+    from quadrant.interpretation import is_below
+
+    assert LIMIT_COMPARE_TOLERANCE == 1e-9
+    assert not is_below(3.28, 3.2800000000000002)
+    assert not is_below(3.28, 3.28)
+    assert is_below(3.27, 3.28)
+    assert is_below(3.28 - 1e-6, 3.28)
+    # The z-score path uses the same helper.
+    assert not is_below(-1.645, -1.645)
+    assert not is_below(-1.6450000000000002, -1.645)
+    assert is_below(-1.646, -1.645)
+
+
+def test_pereira_man_27_years_163_cm_with_fev1_at_the_limit_is_normal():
+    table = compute_pereira_2007(27, 163, 1, 3.28, 4.0)
+    row = table.set_index("parameter").loc["FEV1"]
+    assert row["lln"] == pytest.approx(pereira_paper.lower_limit("male", 27, 163, "FEV1"))
+    assert round(row["lln"], 6) == 3.28
+    assert interpret_spirometry(table)["pattern"] == "normal"
