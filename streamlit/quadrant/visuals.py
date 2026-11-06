@@ -15,7 +15,7 @@ from .constants import (
     SEVERITY_MODERATE_Z_MIN,
     SPIROMETRY_PARAMS,
 )
-from .charts import LEGEND_COLUMNS, PARAMETER_LABELS, _has_finite_z, style_for
+from .charts import LABEL_HALO, LEGEND_COLUMNS, PARAMETER_LABELS, _has_finite_z, style_for
 
 Z_AXIS_MIN = -5
 Z_AXIS_MAX = 3
@@ -28,6 +28,15 @@ SEVERITY_BANDS = (
     {"z_lo": SEVERITY_MILD_Z_MIN, "z_hi": LLN_Z, "fill": "#facc15", "label": "mild"},
     {"z_lo": LLN_Z, "z_hi": Z_AXIS_MAX, "fill": "#86efac", "label": "normal"},
 )
+
+# White halo behind the z labels, the same as LABEL_HALO of the page
+# chart. paint-order draws the stroke first, so the fill stays sharp.
+Z_LABEL_HALO = (
+    f'stroke="{LABEL_HALO["stroke"]}" stroke-width="{LABEL_HALO["strokeWidth"]}" '
+    f'stroke-linejoin="{LABEL_HALO["strokeJoin"]}" '
+    f'stroke-opacity="{LABEL_HALO["strokeOpacity"]}" paint-order="stroke"'
+)
+
 
 def z_to_x(z: float, pad_left: float, plot_width: float) -> float:
     """Map a z-score to an SVG x coordinate, clamped to the axis range."""
@@ -165,7 +174,8 @@ def cross_family_chart_svg(family_tables: dict) -> str:
             markers.append(
                 marker_svg(shape, cx, cy, 7, colour, "marker")
                 + f'<text x="{cx + 13:.2f}" y="{cy + 4:.2f}" font-size="12" '
-                f'text-anchor="start" fill="#0f172a" font-weight="700">{z:.2f}</text>'
+                f'text-anchor="start" fill="#0f172a" font-weight="700" {Z_LABEL_HALO}>'
+                f"{z:.2f}</text>"
             )
         rows.append(bands + label + "".join(markers))
 

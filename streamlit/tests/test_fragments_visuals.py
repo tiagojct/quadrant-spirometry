@@ -247,3 +247,19 @@ def test_the_ratio_is_labelled_fev1_fvc_in_the_notes_and_the_svg():
     assert len(notes) == 1 and notes[0].startswith("FEV1/FVC: GLI-2012 z = -1.00")
     svg = cross_family_chart_svg({"GLI-2012": _table([0, 0, -1.0])})
     assert ">FEV1/FVC</text>" in svg and ">FEV1FVC<" not in svg
+
+
+def test_the_svg_z_labels_have_the_halo_of_the_page_chart():
+    import re
+
+    from quadrant.charts import LABEL_HALO
+
+    svg = cross_family_chart_svg({"GLI-2012": _table([-1.0, -2.0, -3.0])})
+    labels = re.findall(r"<text[^>]*>-[123]\.00</text>", svg)
+    assert len(labels) == 3
+    for label in labels:
+        assert 'paint-order="stroke"' in label
+        assert f'stroke="{LABEL_HALO["stroke"]}"' in label
+        assert f'stroke-width="{LABEL_HALO["strokeWidth"]}"' in label
+        assert f'stroke-linejoin="{LABEL_HALO["strokeJoin"]}"' in label
+        assert f'stroke-opacity="{LABEL_HALO["strokeOpacity"]}"' in label
