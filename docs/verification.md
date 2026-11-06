@@ -7,7 +7,7 @@ Each equation in `streamlit/quadrant/registry.py` has one row in this table. A t
 | gli_2012 | GLI-2012 reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
 | gli_2022 | GLI Global 2022 reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
 | nhanes3 | NHANES III reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
-| kubota_2014 | Kubota et al. 2014: Python wrapper compared with rspiro output (15 cases, tests/testthat/fixtures/jrs_reference_cases.csv) | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures; limits on age checked (see JRS age facts) | verified |
+| kubota_2014 | Kubota et al. 2014: Python wrapper compared with rspiro output (15 cases, tests/testthat/fixtures/jrs_reference_cases.csv) | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures. The fixture covers women only up to age 90. The edge ages 93.5 to 95 are covered by unit tests, not by the fixture (see JRS age facts) | verified |
 
 Allowed status values: `verified`, `single source`, `excluded`.
 
@@ -38,8 +38,8 @@ The script stops if it is not run from the repo root or if any value is NA. The 
 Checked on 2026-11-06 with rspiro 0.5 and pyspiro (class KUBOTA_2014). Both return the same values, and both return NA at the same ages.
 
 - Men: a value for ages 17 to 95 (95 is valid, 95.01 is NA). NA at 16 and from 95.01.
-- Women: a value for ages 17 to 93.99. NA from 94 (93.5 is valid, 94 and 95 are NA).
-- The wrapper rejects an age where rspiro returns NA. For women the message says: for women the JRS 2014 equations are available up to 93 years. The registry age_range stays (17, 95).
+- Women: a value for ages 17 to 93.99. NA from 94 (93.5 and 93.99 are valid, 94 and 95 are NA). NA at 16 and 96 for both sexes.
+- The wrapper rejects an age where rspiro returns NA. For women the message says: for women the JRS 2014 equations are available below 94 years. The limit is exclusive (94 rejected, 93.99 accepted). The registry age_range stays (17, 95).
 - Non-integer ages: rspiro floors the age only for the spline lookup. The LMS terms use the exact age. Age 30.7 gives a different value from age 30 (men, 170 cm, FEV1: 3.8351 L and 3.8623 L). The wrapper agrees with rspiro. test_kubota_non_integer_age_matches_rspiro pins this.
 - rspiro takes height in metres. The wrapper takes centimetres.
 

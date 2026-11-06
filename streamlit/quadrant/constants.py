@@ -42,9 +42,9 @@ NHANES3_AGE_RANGE_YEARS = (8, 80)
 # Investig 2014, doi:10.1016/j.resinv.2014.03.003).
 JRS_AGE_RANGE_YEARS = (17, 95)
 
-# Women: rspiro and pyspiro return NA from 94 years. The message names
-# the last whole year with a value.
-JRS_FEMALE_MAX_AGE_YEARS = 93
+# Women: rspiro and pyspiro return NA from 94 years. The limit is
+# exclusive: an age of 94 or more is rejected, 93.99 is accepted.
+JRS_FEMALE_MAX_AGE_YEARS = 94
 
 # Plausible physiological age range, used when a wrapper passes no
 # equation-specific range.

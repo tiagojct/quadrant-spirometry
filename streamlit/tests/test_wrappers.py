@@ -207,17 +207,28 @@ def test_kubota_age_range_is_17_to_95():
     assert len(compute_kubota_2014(17, 160, 2, 2.8, 3.4)) == 3
 
 
-def test_kubota_women_are_accepted_up_to_93_years():
+def test_kubota_women_are_accepted_below_94_years():
     # rspiro returns NA for women from 94 years. A fractional age below 94
     # still has a value (rspiro: 1.8283 L at 93.5 years, 170 cm).
     assert len(compute_kubota_2014(93, 160, 2, 1.2, 1.6)) == 3
     assert len(compute_kubota_2014(93.5, 160, 2, 1.2, 1.6)) == 3
-    for age in (94, 95):
+    assert len(compute_kubota_2014(93.99, 160, 2, 1.2, 1.6)) == 3
+    for age in (94.0, 94, 95):
         with pytest.raises(
             ValueError,
-            match="for women the JRS 2014 equations are available up to 93 years",
+            match="for women the JRS 2014 equations are available below 94 years",
         ):
             compute_kubota_2014(age, 160, 2, 1.2, 1.6)
+
+
+def test_kubota_age_edges_are_symmetric_for_both_sexes():
+    # rspiro returns NA at 16 and 96 for both sexes and at 95.01 for men.
+    for sex in (1, 2):
+        for age in (16, 96):
+            with pytest.raises(ValueError, match="between 17 and 95"):
+                compute_kubota_2014(age, 165, sex, 1.5, 2.0)
+    with pytest.raises(ValueError, match="between 17 and 95"):
+        compute_kubota_2014(95.01, 170, 1, 2.0, 3.0)
 
 
 def test_kubota_men_are_not_limited_below_95():

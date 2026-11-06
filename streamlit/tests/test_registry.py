@@ -47,7 +47,7 @@ def test_kubota_2014_is_registered_as_a_regional_set():
     assert spec.ethnicities is None
     assert spec.has_lower_limit is True
     assert spec.age_range == (17, 95)
-    assert "women up to 93 years" in spec.population
+    assert "women below 94 years" in spec.population
     assert spec.caveat
     assert "kubota_2014" not in DEFAULT_KEYS
 

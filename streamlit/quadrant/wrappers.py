@@ -247,9 +247,9 @@ def compute_kubota_2014(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFra
         fev1=fev1,
         fvc=fvc,
     )
-    if sex_code == SEX_CODES["Female"] and age_years >= JRS_FEMALE_MAX_AGE_YEARS + 1:
+    if sex_code == SEX_CODES["Female"] and age_years >= JRS_FEMALE_MAX_AGE_YEARS:
         raise ValueError(
-            "for women the JRS 2014 equations are available up to "
+            "for women the JRS 2014 equations are available below "
             f"{JRS_FEMALE_MAX_AGE_YEARS} years."
         )
     return _long_table(
