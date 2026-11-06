@@ -307,7 +307,15 @@ def compute_gli_global_2022(
 def compute_nhanes3(
     age_years, height_cm, sex_code, ethnicity_code, fev1, fvc
 ) -> pd.DataFrame:
-    """NHANES III reference values for a single subject."""
+    """NHANES III reference values for a single subject.
+
+    The paper changes from the younger to the older equations at 20 years
+    for men and 18 years for women. pyspiro 1.0.0 uses the younger
+    equations up to age 19 for men and 17 for women, so a fractional age
+    just below the change point (for example a man of 19.5 years) gets the
+    older equation. rspiro changes at 20 years for both sexes. See
+    docs/verification.md, NHANES III notes.
+    """
     validate_subject_inputs(
         age_years=age_years,
         age_range=NHANES3_AGE_RANGE_YEARS,
