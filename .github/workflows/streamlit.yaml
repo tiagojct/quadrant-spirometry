@@ -1,5 +1,5 @@
-# Quadrant Streamlit port: run the pytest suite when the port or the
-# shared rspiro fixtures change.
+# Quadrant Streamlit port: run the pytest suite when the port, the
+# shared rspiro fixtures or the verification log change.
 #
 # License: AGPL-3.0-or-later
 
@@ -11,11 +11,13 @@ on:
     paths:
       - "streamlit/**"
       - "tests/testthat/fixtures/**"
+      - "docs/verification.md"
       - ".github/workflows/streamlit.yaml"
   pull_request:
     paths:
       - "streamlit/**"
       - "tests/testthat/fixtures/**"
+      - "docs/verification.md"
       - ".github/workflows/streamlit.yaml"
 
 permissions:
