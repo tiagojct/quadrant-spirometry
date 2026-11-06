@@ -24,6 +24,7 @@ Date: 2026-11-06. Branch: streamlit-port. Scope: the Python app in `streamlit/` 
 
 - Every family returns the same long-form table. `z_score` may be NaN only for an equation that publishes no z-score or no lower limit (ECCS 1993 and Pereira 2007). `lln` may be NaN only when the equation publishes no lower limit.
 - An equation without a lower limit shows "not classified". It never shows "normal".
+- Note, 2026-11-06 (decision of the maintainer): an equation that publishes a lower limit but no z-score (Pereira 2007) is classified from the observed values against the published lower limit, with the same strict rule as for z-scores. Its severity is not graded, and the page and the report state the basis. An equation with neither a lower limit nor a z-score (ECCS 1993) stays "not classified".
 - Each equation states its population and age range. A regional or historical set carries a short caveat.
 - The app keeps no patient data. Session state holds only the current inputs and the pinned what-if values for the session.
 - Text rules of the project apply: no emojis, no em dashes, no exclamation marks, no bold emphasis in UI text, descriptive wording only, the disclaimer on every export.

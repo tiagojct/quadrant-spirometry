@@ -32,13 +32,13 @@ The operator selects the equations in the sidebar. The selector has three groups
 | NHANES III (Hankinson et al., AJRCCM 1999) | historical | United States, with an ethnicity choice | 8 to 80 | yes | verified |
 | ECCS/Quanjer 1993 (Eur Respir J 1993) | historical | adults of European descent | 18 to 70 | no | verified |
 | Kubota 2014, JRS (Respir Investig 2014) | regional | Japanese adults | 17 to 95 (men), 17 to below 94 (women) | yes | verified |
-| Pereira 2007 (J Bras Pneumol 2007) | regional | White Brazilian adults | 26 to 86 (men), 20 to 85 (women) | lower limit only, no z-score | verified |
+| Pereira 2007 (J Bras Pneumol 2007) | regional | White Brazilian adults | 26 to 86 (men), 20 to 85 (women) | lower limit only, no z-score (classified by lower limit) | verified |
 | Jian 2017 (China) | not in the app | Chinese, 4 to 80 years | not applicable | not applicable | excluded |
 | Jo 2018 (Korea) | not in the app | Korean adults | not applicable | not applicable | excluded |
 
 Jian 2017 is excluded because 9 of 36 published predicted values differ from the implementation by more than the print rounding, and the lower limit of FVC in men cannot be traced to the paper. Jo 2018 is excluded because the printed lower limit of FEV1/FVC in women contradicts the paper's own figures and text. See `../docs/verification.md` for the checks.
 
-GLI-2012, GLI-Global 2022 and NHANES III are selected when the page opens. At least one equation stays selected. Each historical and regional set shows a short caveat. An equation without a z-score is shown as not classified, never as normal. The equation notes on the page give the citation, the population and the age range of each set.
+GLI-2012, GLI-Global 2022 and NHANES III are selected when the page opens. At least one equation stays selected. Each historical and regional set shows a short caveat. An equation that publishes a lower limit but no z-score (Pereira 2007) is classified from the observed values against that lower limit, with the same rule as for z-scores: only a value strictly below the limit counts. Its severity is not graded, and the page and the report say so. An equation with neither a lower limit nor a z-score (ECCS 1993) is shown as not classified, never as normal. The equation notes on the page give the citation, the population and the age range of each set.
 
 Jian 2017 (China) and Jo 2018 (Korea) were examined and excluded: their published tables and figures disagree, so their lower limits cannot be traced to the papers. `../docs/verification.md` records how each equation was checked, and why these two were excluded.
 
@@ -48,6 +48,10 @@ The equations come from the `pyspiro` package (MIT licence), classes `GLI_2012`,
 - NHANES III, Pereira 2007 and ECCS 1993 express FEV1/FVC as a percentage, and NHANES III numbers its parameters differently. The wrappers convert them, so that every equation returns the same long-form table. The app always shows the ratio as a fraction.
 - pyspiro returns NA outside the domain of an equation. The wrapper turns that into an error message. The page shows the message for that equation and computes the others.
 - ECCS 1993: between 18 and 25 years the source enters an age of 25 years. The wrapper applies this age floor.
+
+## Severity
+
+Severity follows the ATS/ERS 2022 interpretation strategy (Stanojevic et al., ERJ 2022, doi:10.1183/13993003.01499-2021) and uses the FEV1 z-score only: mild for a z-score of -2.5 or higher, moderate from -2.5 to -4.0, severe below -4.0. Mild has no lower bound at the lower limit of normal, so a pattern with an FEV1 that is still within the lower limit of normal reads "mild", for example an obstructive pattern with an FEV1 z-score of -1.0. This follows the 2022 statement and is kept on purpose.
 
 ## How to add an equation
 
