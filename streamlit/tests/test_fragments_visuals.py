@@ -428,3 +428,12 @@ def test_pereira_fragments_from_real_tables_have_no_nan_text():
         for text in (pattern_label(result), render_interpretation(result),
                      render_pattern_badge(result)):
             assert "nan" not in text.lower()
+
+
+def test_comparison_notes_use_the_shared_below_rule():
+    # -1.6450000000000002 equals the limit up to rounding error: within LLN,
+    # as in classify_pattern. Strict "<" would call it below and flip.
+    notes = comparison_notes(_table([-1.6450000000000002, 0, 0]), _table([-1.0, 0, 0]))
+    assert notes == []
+    notes = comparison_notes(_table([-1.646, 0, 0]), _table([-1.0, 0, 0]))
+    assert len(notes) == 1 and "(below LLN)" in notes[0]

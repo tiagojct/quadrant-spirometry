@@ -249,8 +249,8 @@ def comparison_notes(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.DataFrame
     """
     if gli_2012_df is None or gli_2022_df is None:
         return None
-    below_2012 = (gli_2012_df["z_score"] < LLN_Z).tolist()
-    below_2022 = (gli_2022_df["z_score"] < LLN_Z).tolist()
+    below_2012 = [is_below(z, LLN_Z) for z in gli_2012_df["z_score"]]
+    below_2022 = [is_below(z, LLN_Z) for z in gli_2022_df["z_score"]]
 
     def side(below: bool) -> str:
         return "below LLN" if below else "within LLN"
