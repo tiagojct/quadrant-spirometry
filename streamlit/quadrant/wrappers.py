@@ -15,12 +15,14 @@ from __future__ import annotations
 import numbers
 
 import pandas as pd
-from pyspiro import BOWERMAN_2022, GLI_2012, HANKINSON_1999
+from pyspiro import BOWERMAN_2022, GLI_2012, HANKINSON_1999, KUBOTA_2014
 
 from .constants import (
     GLI_AGE_RANGE_YEARS,
     GLI_ETHNICITY,
     HEIGHT_RANGE_CM,
+    JRS_AGE_RANGE_YEARS,
+    JRS_FEMALE_MAX_AGE_YEARS,
     NHANES3_AGE_RANGE_YEARS,
     NHANES3_ETHNICITY,
     PLAUSIBLE_AGE_RANGE_YEARS,
@@ -40,6 +42,7 @@ TABLE_COLUMNS = (
 # Parameter codes differ between the pyspiro classes.
 _GLI_PARAM_CODES = {"FEV1": 1, "FVC": 2, "FEV1FVC": 3}
 _NHANES3_PARAM_CODES = {"FEV1": 2, "FVC": 1, "FEV1FVC": 3}
+_JRS_PARAM_CODES = {"FEV1": 1, "FVC": 2, "FEV1FVC": 4}
 
 # pyspiro codes sex as 1 = male, 0 = female. This project uses 1 and 2.
 _PYSPIRO_SEX = {1: 1, 2: 0}
@@ -51,6 +54,7 @@ _NHANES3_RATIO_SCALE = 100.0
 _GLI_2012 = GLI_2012()
 _GLI_2022 = BOWERMAN_2022()
 _NHANES3 = HANKINSON_1999()
+_JRS_2014 = KUBOTA_2014()
 
 
 def validate_subject_inputs(
@@ -226,4 +230,32 @@ def compute_nhanes3(
         _observed(fev1, fvc),
         "NHANES III",
         ratio_scale=_NHANES3_RATIO_SCALE,
+    )
+
+
+def compute_kubota_2014(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFrame:
+    """JRS 2014 (Kubota) reference values for a single subject.
+
+    The equations have no ethnicity argument. rspiro returns NA for women
+    from 94 years, so the wrapper rejects that age for women.
+    """
+    validate_subject_inputs(
+        age_years=age_years,
+        age_range=JRS_AGE_RANGE_YEARS,
+        height_cm=height_cm,
+        sex_code=sex_code,
+        fev1=fev1,
+        fvc=fvc,
+    )
+    if sex_code == SEX_CODES["Female"] and age_years >= JRS_FEMALE_MAX_AGE_YEARS + 1:
+        raise ValueError(
+            "for women the JRS 2014 equations are available up to "
+            f"{JRS_FEMALE_MAX_AGE_YEARS} years."
+        )
+    return _long_table(
+        _JRS_2014,
+        (_PYSPIRO_SEX[sex_code], age_years, height_cm),
+        _JRS_PARAM_CODES,
+        _observed(fev1, fvc),
+        "JRS 2014",
     )

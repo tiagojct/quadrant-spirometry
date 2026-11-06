@@ -7,6 +7,7 @@ Each equation in `streamlit/quadrant/registry.py` has one row in this table. A t
 | gli_2012 | GLI-2012 reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
 | gli_2022 | GLI Global 2022 reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
 | nhanes3 | NHANES III reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
+| kubota_2014 | Kubota et al. 2014: Python wrapper compared with rspiro output (15 cases, tests/testthat/fixtures/jrs_reference_cases.csv) | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures; limits on age checked (see JRS age facts) | verified |
 
 Allowed status values: `verified`, `single source`, `excluded`.
 
@@ -32,6 +33,16 @@ Rscript streamlit/tests/r/make_jrs_fixtures.R
 
 The script stops if it is not run from the repo root or if any value is NA. The script prints the rspiro version when it runs. Version used for the current fixture: rspiro 0.5. The script writes tests/testthat/fixtures/jrs_reference_cases.csv. All numbers come from rspiro. The file has 15 cases with 3 rows each (FEV1, FVC, FEV1FVC).
 
+## JRS age facts
+
+Checked on 2026-11-06 with rspiro 0.5 and pyspiro (class KUBOTA_2014). Both return the same values, and both return NA at the same ages.
+
+- Men: a value for ages 17 to 95 (95 is valid, 95.01 is NA). NA at 16 and from 95.01.
+- Women: a value for ages 17 to 93.99. NA from 94 (93.5 is valid, 94 and 95 are NA).
+- The wrapper rejects an age where rspiro returns NA. For women the message says: for women the JRS 2014 equations are available up to 93 years. The registry age_range stays (17, 95).
+- Non-integer ages: rspiro floors the age only for the spline lookup. The LMS terms use the exact age. Age 30.7 gives a different value from age 30 (men, 170 cm, FEV1: 3.8351 L and 3.8623 L). The wrapper agrees with rspiro. test_kubota_non_integer_age_matches_rspiro pins this.
+- rspiro takes height in metres. The wrapper takes centimetres.
+
 ## rspiro arguments
 
 - `pred_JRS(age, height, gender = 1, param = "FEV1")`
@@ -48,7 +59,6 @@ The script stops if it is not run from the repo root or if any value is NA. The 
 
 These equations have no row in the table yet. Add the row when the equation enters the registry.
 
-- kubota_2014 (JRS): expected status verified, with the rspiro fixture.
 - pereira_2007: pending, status not decided.
 - eccs_1993: pending, status not decided.
 - jian_2017: pending, status not decided.

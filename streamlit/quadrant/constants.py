@@ -38,6 +38,14 @@ GLI_AGE_RANGE_YEARS = (3, 95)
 # Age range in years of the NHANES III reference population.
 NHANES3_AGE_RANGE_YEARS = (8, 80)
 
+# Age range in years of the JRS 2014 equations (Kubota et al., Respir
+# Investig 2014, doi:10.1016/j.resinv.2014.03.003).
+JRS_AGE_RANGE_YEARS = (17, 95)
+
+# Women: rspiro and pyspiro return NA from 94 years. The message names
+# the last whole year with a value.
+JRS_FEMALE_MAX_AGE_YEARS = 93
+
 # Plausible physiological age range, used when a wrapper passes no
 # equation-specific range.
 PLAUSIBLE_AGE_RANGE_YEARS = (0, 120)

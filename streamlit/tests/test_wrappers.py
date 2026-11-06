@@ -8,6 +8,7 @@ from quadrant.wrappers import (
     TABLE_COLUMNS,
     compute_gli_2012,
     compute_gli_global_2022,
+    compute_kubota_2014,
     compute_nhanes3,
     validate_subject_inputs,
 )
@@ -189,3 +190,65 @@ def test_long_table_allows_nan_limits_only_when_not_required():
         _long_table(Ref(predicted=float("nan")), *args, limits_required=False)
     with _pytest.raises(ValueError):
         _long_table(Ref(percent=float("nan")), *args, limits_required=False)
+
+
+@pytest.mark.parametrize("rows", _cases("jrs_reference_cases.csv"))
+def test_kubota_2014_matches_rspiro(rows):
+    _check_case(compute_kubota_2014(**_args(rows, False)), rows)
+
+
+def test_kubota_age_range_is_17_to_95():
+    with pytest.raises(ValueError, match="between 17 and 95"):
+        compute_kubota_2014(16, 170, 1, 3.0, 4.0)
+    with pytest.raises(ValueError, match="between 17 and 95"):
+        compute_kubota_2014(96, 170, 1, 2.0, 3.0)
+    assert len(compute_kubota_2014(17, 170, 1, 3.0, 4.0)) == 3
+    assert len(compute_kubota_2014(95, 170, 1, 2.0, 3.0)) == 3
+    assert len(compute_kubota_2014(17, 160, 2, 2.8, 3.4)) == 3
+
+
+def test_kubota_women_are_accepted_up_to_93_years():
+    # rspiro returns NA for women from 94 years. A fractional age below 94
+    # still has a value (rspiro: 1.8283 L at 93.5 years, 170 cm).
+    assert len(compute_kubota_2014(93, 160, 2, 1.2, 1.6)) == 3
+    assert len(compute_kubota_2014(93.5, 160, 2, 1.2, 1.6)) == 3
+    for age in (94, 95):
+        with pytest.raises(
+            ValueError,
+            match="for women the JRS 2014 equations are available up to 93 years",
+        ):
+            compute_kubota_2014(age, 160, 2, 1.2, 1.6)
+
+
+def test_kubota_men_are_not_limited_below_95():
+    for age in (93, 94, 95):
+        assert len(compute_kubota_2014(age, 170, 1, 2.0, 3.0)) == 3
+
+
+def test_kubota_non_integer_age_matches_rspiro():
+    # rspiro floors the age only for the spline lookup. The LMS terms use
+    # the exact age, so 30.7 years differs from 30. Values: rspiro 0.5,
+    # height 1.70 m, FEV1 pred and LLN.
+    male = compute_kubota_2014(30.7, 170, 1, 3.0, 4.0).iloc[0]
+    assert male["predicted"] == pytest.approx(3.83508979, abs=TOLERANCE)
+    assert male["lln"] == pytest.approx(3.15990941, abs=TOLERANCE)
+    female = compute_kubota_2014(30.7, 170, 2, 3.0, 4.0).iloc[0]
+    assert female["predicted"] == pytest.approx(3.19842422, abs=TOLERANCE)
+    assert female["lln"] == pytest.approx(2.60004671, abs=TOLERANCE)
+    assert male["predicted"] != pytest.approx(
+        compute_kubota_2014(30, 170, 1, 3.0, 4.0).iloc[0]["predicted"], abs=1e-4
+    )
+
+
+def test_kubota_ratio_is_a_fraction():
+    table = compute_kubota_2014(40, 170, 1, 3.0, 4.0)
+    ratio = table[table["parameter"] == "FEV1FVC"].iloc[0]
+    assert ratio["observed"] == pytest.approx(0.75)
+    assert 0.7 < ratio["predicted"] < 0.9
+    assert ratio["lln"] < ratio["predicted"]
+
+
+def test_kubota_sex_mapping():
+    male = compute_kubota_2014(40, 170, 1, 3.0, 4.0)
+    female = compute_kubota_2014(40, 170, 2, 3.0, 4.0)
+    assert male["predicted"].iloc[0] > female["predicted"].iloc[0]

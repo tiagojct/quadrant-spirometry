@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from quadrant.registry import DEFAULT_KEYS, EQUATIONS, Subject, compute_equation
-from quadrant.wrappers import compute_gli_2012
+from quadrant.wrappers import compute_gli_2012, compute_kubota_2014
 
 
 def test_default_keys_are_the_three_current_equations():
@@ -39,3 +39,20 @@ def test_compute_equation_matches_the_direct_wrapper():
 def test_compute_equation_rejects_an_unknown_key():
     with pytest.raises(ValueError, match="Unknown equation"):
         compute_equation("nope", Subject(40, 170, 1, 3.0, 4.0))
+
+
+def test_kubota_2014_is_registered_as_a_regional_set():
+    spec = EQUATIONS["kubota_2014"]
+    assert spec.group == "regional"
+    assert spec.ethnicities is None
+    assert spec.has_lower_limit is True
+    assert spec.age_range == (17, 95)
+    assert "women up to 93 years" in spec.population
+    assert spec.caveat
+    assert "kubota_2014" not in DEFAULT_KEYS
+
+
+def test_compute_equation_kubota_matches_the_direct_wrapper():
+    subject = Subject(40, 170, 2, 2.5, 3.2)
+    got = compute_equation("kubota_2014", subject)
+    pd.testing.assert_frame_equal(got, compute_kubota_2014(40, 170, 2, 2.5, 3.2))

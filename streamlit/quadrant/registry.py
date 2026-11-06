@@ -15,10 +15,16 @@ import pandas as pd
 from .constants import (
     GLI_AGE_RANGE_YEARS,
     GLI_ETHNICITY,
+    JRS_AGE_RANGE_YEARS,
     NHANES3_AGE_RANGE_YEARS,
     NHANES3_ETHNICITY,
 )
-from .wrappers import compute_gli_2012, compute_gli_global_2022, compute_nhanes3
+from .wrappers import (
+    compute_gli_2012,
+    compute_gli_global_2022,
+    compute_kubota_2014,
+    compute_nhanes3,
+)
 
 
 @dataclass(frozen=True)
@@ -85,6 +91,16 @@ def _nhanes3(subject: Subject, ethnicity_code: int | None) -> pd.DataFrame:
     )
 
 
+def _kubota_2014(subject: Subject, ethnicity_code: int | None) -> pd.DataFrame:
+    return compute_kubota_2014(
+        subject.age_years,
+        subject.height_cm,
+        subject.sex_code,
+        subject.fev1,
+        subject.fvc,
+    )
+
+
 _SPECS = (
     EquationSpec(
         key="gli_2012",
@@ -130,6 +146,18 @@ _SPECS = (
         group="historical",
         caveat="A pre-GLI US reference, kept for comparison.",
         compute=_nhanes3,
+    ),
+    EquationSpec(
+        key="kubota_2014",
+        name="Kubota 2014 (JRS)",
+        citation="Kubota et al., Respir Investig 2014",
+        population="Japanese adults, 17 to 95 years (women up to 93 years)",
+        age_range=JRS_AGE_RANGE_YEARS,
+        ethnicities=None,
+        has_lower_limit=True,
+        group="regional",
+        caveat="Japanese reference population. Use for comparison, not as the default.",
+        compute=_kubota_2014,
     ),
 )
 
