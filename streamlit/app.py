@@ -16,7 +16,7 @@ from html import escape as html_escape
 
 import streamlit as st
 
-from quadrant.charts import comparison_chart, not_plotted_caption
+from quadrant.charts import LLN_NOTE, comparison_chart, not_plotted_caption
 from quadrant.constants import (
     DISCLAIMER_TEXT,
     GLI_AGE_RANGE_YEARS,
@@ -261,10 +261,11 @@ with st.container(border=True):
     screen_chart = comparison_chart(named_tables)
     if screen_chart is not None:
         st.altair_chart(screen_chart, width="stretch", alt=CHART_ALT)
+        st.caption(LLN_NOTE)
         if not_plotted:
             st.caption(not_plotted)
     elif inputs_ready:
-        st.caption(not_plotted)
+        st.caption(not_plotted or "No selected equation covers these inputs.")
     else:
         st.caption("Enter values to draw the comparison chart.")
     if both_gli:

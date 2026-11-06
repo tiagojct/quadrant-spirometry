@@ -4,6 +4,7 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
+from quadrant.charts import LLN_NOTE
 from quadrant.registry import EQUATIONS
 
 APP = str(Path(__file__).resolve().parents[1] / "app.py")
@@ -179,3 +180,18 @@ def test_sex_changes_the_reference_values():
 def test_the_download_button_is_disabled_when_inputs_are_unusable():
     assert _run(fev1=5.0, fvc=4.0).get("download_button")[0].proto.disabled
     assert not _run().get("download_button")[0].proto.disabled
+
+
+def test_an_equation_outside_its_range_is_not_called_no_z_score():
+    at = _run(age_years=3.0, height_cm=95.0, fev1=0.8, fvc=0.9)
+    assert not at.exception
+    assert any("between 8 and 80" in w.value for w in at.warning)
+    captions = [str(c.value) for c in at.caption]
+    assert not any("no z-score" in c for c in captions)
+    assert not any(c.startswith("Not plotted") for c in captions)
+    assert LLN_NOTE in captions
+
+
+def test_an_equation_with_no_z_score_is_still_named_under_the_chart():
+    at = _run(equations=["gli_2012", "eccs_1993"])
+    assert "Not plotted, no z-score: ECCS/Quanjer 1993" in [str(c.value) for c in at.caption]

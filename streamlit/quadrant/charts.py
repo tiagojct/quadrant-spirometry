@@ -40,13 +40,24 @@ STYLES = (
     ("#4d7c0f", "cross"),
 )
 
+# Legend columns of the static SVG chart in the report (fixed width).
 LEGEND_COLUMNS = 4
 
+# Legend columns of the page chart. Vega legends do not wrap, so the
+# legends keep two columns, which fit a 390 px phone screen.
+CHART_LEGEND_COLUMNS = 2
+
 # Chart height: a base plus one step for each plotted equation. Streamlit
-# fits the legends and the axis (about 220 px) inside this height, so the
-# base keeps three readable parameter rows for a single equation.
-CHART_BASE_HEIGHT = 330
-CHART_EQUATION_HEIGHT = 50
+# fits the legends and the axis (about 240 px) inside this height, so the
+# base keeps three readable parameter rows for a single equation. The step
+# also covers the extra legend row for every second equation.
+CHART_BASE_HEIGHT = 340
+CHART_EQUATION_HEIGHT = 60
+
+# Z-score labels: dark text over a light halo, readable on every band in
+# the light and the dark theme.
+LABEL_COLOUR = "#0f172a"
+LABEL_HALO = {"stroke": "#ffffff", "strokeWidth": 3, "strokeJoin": "round", "strokeOpacity": 0.85}
 
 
 def style_for(index: int) -> tuple[str, str]:
@@ -63,7 +74,10 @@ BANDS = (
     (LLN_Z, Z_AXIS_MAX, "Normal (LLN and above)", "#4ade80"),
 )
 
-AXIS_TITLE = "z-score (dashed line: lower limit of normal, z = -1.645)"
+AXIS_TITLE = "z-score"
+
+# Caption under the chart. The axis title stays short to fit a phone.
+LLN_NOTE = "The dashed line marks the lower limit of normal (z = -1.645)."
 
 
 def band_frame() -> pd.DataFrame:
@@ -76,8 +90,15 @@ def _has_finite_z(table) -> bool:
 
 
 def not_plotted_names(frames: dict) -> list[str]:
-    """Names of equations with no result or no finite z-score."""
-    return [name for name, table in frames.items() if not _has_finite_z(table)]
+    """Names of equations that have a result but no finite z-score.
+
+    An equation without a result (None) is left out: it rejected the
+    inputs and the page shows its own message.
+    """
+    return [
+        name for name, table in frames.items()
+        if table is not None and not _has_finite_z(table)
+    ]
 
 
 def not_plotted_caption(frames: dict) -> str:
@@ -161,7 +182,7 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
                     title="Severity band (FEV1 z-score)",
                     orient="bottom",
                     direction="horizontal",
-                    columns=4,
+                    columns=CHART_LEGEND_COLUMNS,
                     symbolOpacity=0.6,
                     labelFontSize=12,
                     titleFontSize=12,
@@ -208,7 +229,7 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
                     title="Reference equation",
                     orient="top",
                     direction="horizontal",
-                    columns=LEGEND_COLUMNS,
+                    columns=CHART_LEGEND_COLUMNS,
                     labelFontSize=12,
                     titleFontSize=12,
                     symbolSize=160,
@@ -227,19 +248,25 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
         )
     )
 
+    label_encoding = {
+        "x": alt.X("z_plot:Q", scale=x_scale),
+        "y": y,
+        "yOffset": y_offset,
+        "text": "z_text:N",
+    }
+    halo_layer = (
+        alt.Chart(points)
+        .mark_text(align="left", dx=13, fontSize=12, **LABEL_HALO)
+        .encode(**label_encoding)
+    )
     label_layer = (
         alt.Chart(points)
-        .mark_text(align="left", dx=13, fontSize=12)
-        .encode(
-            x=alt.X("z_plot:Q", scale=x_scale),
-            y=y,
-            yOffset=y_offset,
-            text="z_text:N",
-        )
+        .mark_text(align="left", dx=13, fontSize=12, color=LABEL_COLOUR)
+        .encode(**label_encoding)
     )
 
     return (
-        alt.layer(band_layer, lln_layer, label_layer, marker_layer)
+        alt.layer(band_layer, lln_layer, halo_layer, label_layer, marker_layer)
         .resolve_scale(color="independent", fill="independent", shape="independent")
         .properties(height=CHART_BASE_HEIGHT + CHART_EQUATION_HEIGHT * len(families))
         .configure_view(stroke=None)

@@ -75,8 +75,8 @@ def test_the_chart_has_bands_a_lln_line_labels_and_markers():
     )
     spec = chart.to_dict()
     marks = [layer["mark"]["type"] for layer in spec["layer"]]
-    assert marks == ["rect", "rule", "text", "point"]
-    marker = spec["layer"][3]["encoding"]
+    assert marks == ["rect", "rule", "text", "text", "point"]
+    marker = spec["layer"][4]["encoding"]
     fields = {t["field"] for t in marker["tooltip"]}
     assert {"family", "parameter", "z_score", "observed", "predicted", "lln"} <= fields
     assert marker["yOffset"]["field"] == "family"
@@ -88,7 +88,7 @@ def test_the_chart_has_bands_a_lln_line_labels_and_markers():
 
 def test_the_marker_order_follows_the_input_order():
     chart = comparison_chart({"NHANES III": _table([0, 0, 0]), "GLI-2012": _table([0, 0, 0])})
-    marker = chart.to_dict()["layer"][3]["encoding"]
+    marker = chart.to_dict()["layer"][4]["encoding"]
     assert marker["color"]["scale"]["domain"] == ["NHANES III", "GLI-2012"]
 
 
@@ -118,12 +118,34 @@ def test_chart_height_grows_with_equations():
     # 220 px, so one equation still needs room for three parameter rows.
     for n in (1, 3, 6, 8):
         tables = {f"Eq {i}": _table([-1, -2, -3]) for i in range(n)}
-        assert comparison_chart(tables).to_dict()["height"] == 330 + 50 * n
+        assert comparison_chart(tables).to_dict()["height"] == 340 + 60 * n
     spec = comparison_chart({f"Eq {i}": _table([0, 0, 0]) for i in range(8)}).to_dict()
-    legend = spec["layer"][3]["encoding"]["color"]["legend"]
-    assert legend["columns"] == 4
+    legend = spec["layer"][4]["encoding"]["color"]["legend"]
+    # Vega legends do not wrap: two columns fit a phone screen.
+    assert legend["columns"] == 2
     # Above the plot, so it does not share a row with the severity legend.
     assert legend["orient"] == "top"
+    assert spec["layer"][0]["encoding"]["fill"]["legend"]["columns"] == 2
+
+
+def test_the_axis_title_is_short_and_the_lln_note_is_a_caption():
+    from quadrant.charts import AXIS_TITLE, LLN_NOTE
+
+    assert AXIS_TITLE == "z-score"
+    assert LLN_NOTE == "The dashed line marks the lower limit of normal (z = -1.645)."
+
+
+def test_the_z_labels_have_a_light_halo_under_dark_text():
+    spec = comparison_chart({"A": _table([-4.5, -1, 0])}).to_dict()
+    halo, label = spec["layer"][2], spec["layer"][3]
+    assert halo["mark"]["stroke"] == "#ffffff"
+    assert halo["mark"]["strokeWidth"] == 3
+    assert halo["mark"]["strokeJoin"] == "round"
+    assert halo["mark"]["strokeOpacity"] == 0.85
+    assert label["mark"]["color"] == "#0f172a"
+    for layer in (halo, label):
+        assert layer["mark"]["align"] == "left" and layer["mark"]["dx"] == 13
+        assert layer["encoding"]["text"]["field"] == "z_text"
 
 
 def _luminance(hex_colour):
@@ -147,6 +169,8 @@ def test_not_plotted_names_and_caption():
         "C": _table([nan, nan, nan]),
         "D": _table([nan, -1, nan]),
     }
-    assert not_plotted_names(frames) == ["B", "C"]
-    assert not_plotted_caption(frames) == "Not plotted, no z-score: B, C"
+    # B has no result (the equation rejected the inputs and shows its own
+    # message), so it is not called "no z-score".
+    assert not_plotted_names(frames) == ["C"]
+    assert not_plotted_caption(frames) == "Not plotted, no z-score: C"
     assert not_plotted_caption({"A": _table([0, 0, 0])}) == ""
