@@ -13,15 +13,19 @@ import pandas as pd
 
 from .charts import PARAMETER_LABELS
 from .constants import LLN_Z
+from .interpretation import BASIS_LOWER_LIMIT
 from .registry import EQUATIONS
 
 # Badge colours per severity level; "normal" is used when there is no
-# severity. Visual emphasis only, no diagnostic semantics.
+# severity. "ungraded" is a pattern below the lower limit without a
+# severity grade (classified by lower limit, no z-score). Visual emphasis
+# only, no diagnostic semantics.
 BADGE_PALETTE = {
     "normal": ("#86efac", "#0f172a"),
     "mild": ("#facc15", "#0f172a"),
     "moderate": ("#f59e0b", "#0f172a"),
     "severe": ("#dc2626", "#ffffff"),
+    "ungraded": ("#dbeafe", "#1e3a8a"),
 }
 
 
@@ -47,17 +51,50 @@ def input_problem(fev1, fvc) -> str | None:
     return None
 
 
-# Streamlit badge colour for each severity level.
-BADGE_COLOURS = {None: "green", "mild": "yellow", "moderate": "orange", "severe": "red"}
+# Streamlit badge colour for each severity level. "ungraded": a pattern
+# below the lower limit, classified by lower limit, without a severity.
+BADGE_COLOURS = {
+    None: "green", "mild": "yellow", "moderate": "orange", "severe": "red",
+    "ungraded": "blue",
+}
 
 NOT_CLASSIFIED_LABEL = "Not classified (no z-score for this equation)"
+
+# Wording for a result classified from observed values against a
+# published lower limit (an equation without a z-score, Pereira 2007).
+LOWER_LIMIT_SUFFIX = ", by lower limit"
+LOWER_LIMIT_BASIS_TEXT = "from observed values against the published lower limit"
+SEVERITY_NOT_GRADED_TEXT = "Severity not graded (no z-score for this equation)"
+LOWER_LIMIT_NOTE = (
+    f"Pattern {LOWER_LIMIT_BASIS_TEXT}. {SEVERITY_NOT_GRADED_TEXT}."
+)
+
+
+def by_lower_limit(interpretation: dict) -> bool:
+    """True for a result classified by lower limit, without a z-score."""
+    return (
+        interpretation["pattern"] is not None
+        and interpretation.get("basis") == BASIS_LOWER_LIMIT
+    )
+
+
+def severity_key(interpretation: dict) -> str | None:
+    """Key of BADGE_COLOURS and BADGE_PALETTE for a classified result.
+
+    The severity level, None for a normal pattern, or "ungraded" for a
+    pattern below the lower limit that has no severity grade.
+    """
+    if by_lower_limit(interpretation) and interpretation["pattern"] != "normal":
+        return "ungraded"
+    return interpretation["severity"]
 
 
 def pattern_label(interpretation: dict) -> str:
     """Descriptive label, for example "Pattern consistent with obstructive · moderate".
 
     The wording is descriptive, never diagnostic. Labels that already
-    contain "pattern" do not repeat the word.
+    contain "pattern" do not repeat the word. A result classified by
+    lower limit ends with ", by lower limit" and has no severity.
     """
     pattern = interpretation["pattern"]
     severity = interpretation["severity"]
@@ -67,14 +104,21 @@ def pattern_label(interpretation: dict) -> str:
         text = f"Consistent with {pattern}"
     else:
         text = f"Pattern consistent with {pattern}"
+    if by_lower_limit(interpretation):
+        return f"{text}{LOWER_LIMIT_SUFFIX}"
     return text if severity is None else f"{text} · {severity}"
+
+
+def basis_note(interpretation: dict) -> str | None:
+    """Note under the badge for a result classified by lower limit, else None."""
+    return LOWER_LIMIT_NOTE if by_lower_limit(interpretation) else None
 
 
 def badge_colour(interpretation: dict) -> str:
     """Streamlit badge colour that matches the severity level."""
     if interpretation["pattern"] is None:
         return "gray"
-    return BADGE_COLOURS[interpretation["severity"]]
+    return BADGE_COLOURS[severity_key(interpretation)]
 
 
 def render_pattern_badge(interpretation: dict | None) -> str:
@@ -85,7 +129,7 @@ def render_pattern_badge(interpretation: dict | None) -> str:
         background, foreground = ("#e2e8f0", "#334155")
     else:
         background, foreground = BADGE_PALETTE.get(
-            interpretation["severity"] or "normal", ("#94a3b8", "#0f172a")
+            severity_key(interpretation) or "normal", ("#94a3b8", "#0f172a")
         )
     return (
         f'<div class="qd-badge" style="background:{background};color:{foreground};">'
@@ -108,6 +152,14 @@ def render_interpretation(interpretation: dict | None) -> str:
         '<p class="qd-line"><span class="qd-muted">Pattern: </span>'
         f'<span>{escape(interpretation["pattern"])}</span></p>'
     )
+    if by_lower_limit(interpretation):
+        return (
+            f"<div>{pattern_line}"
+            '<p class="qd-line"><span class="qd-muted">Basis: </span>'
+            f"<span>{LOWER_LIMIT_BASIS_TEXT}</span></p>"
+            '<p class="qd-line"><span class="qd-muted">Severity: </span>'
+            "<span>not graded (no z-score for this equation)</span></p></div>"
+        )
     if interpretation["severity"] is None:
         severity_line = (
             '<p class="qd-line"><span class="qd-muted">Severity: </span>'
@@ -220,12 +272,23 @@ def render_gli_comparison(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.Data
 
 
 def short_label(interpretation: dict) -> str:
-    """Short classification such as "obstructive \u00b7 moderate" or "normal"."""
+    """Short classification such as "obstructive \u00b7 moderate" or "normal".
+
+    A result classified by lower limit has no severity, so it is the
+    pattern alone.
+    """
     severity = interpretation["severity"]
     pattern = interpretation["pattern"]
     if pattern is None:
         return "not classified"
     return pattern if severity is None else f"{pattern} \u00b7 {severity}"
+
+
+def _names(names: list[str]) -> str:
+    """"A", "A and B", "A, B and C"."""
+    if len(names) == 1:
+        return names[0]
+    return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def classification_summary(interpretations: dict) -> str | None:
@@ -237,6 +300,10 @@ def classification_summary(interpretations: dict) -> str | None:
     the end, and the sentence then speaks of the classified equations.
     Returns None when fewer than two equations have a result. The text
     says that equations agree only when two or more are classified.
+
+    When an equation is classified by lower limit (no z-score, so no
+    severity), the sentence compares the patterns only, lists the result
+    of each equation, and names the equations classified by lower limit.
     """
     results = {
         EQUATIONS[key].name: value
@@ -248,12 +315,25 @@ def classification_summary(interpretations: dict) -> str | None:
     classified = {n: v for n, v in results.items() if v["pattern"] is not None}
     unclassified = [n for n, v in results.items() if v["pattern"] is None]
     tail = f" Not classified: {', '.join(unclassified)}." if unclassified else ""
+    by_limit = [n for n, v in classified.items() if by_lower_limit(v)]
     if not classified:
         return f"No equation is classified.{tail}"
     if len(classified) == 1:
-        return f"Only {next(iter(classified))} is classified.{tail}"
+        basis = f", {LOWER_LIMIT_BASIS_TEXT}" if by_limit else ""
+        return f"Only {next(iter(classified))} is classified{basis}.{tail}"
     subject = "The classified equations" if unclassified else "The equations"
+    detail = "; ".join(f"{name}: {short_label(v)}" for name, v in classified.items())
+    if by_limit:
+        if len({v["pattern"] for v in classified.values()}) == 1:
+            verdict = f"{subject} give the same pattern."
+        else:
+            verdict = f"{subject} give different patterns."
+        verb = "is" if len(by_limit) == 1 else "are"
+        basis = (
+            f"{_names(by_limit)} {verb} classified {LOWER_LIMIT_BASIS_TEXT}, "
+            "with no severity grade."
+        )
+        return f"{verdict} {detail}. {basis}{tail}"
     if len({short_label(v) for v in classified.values()}) == 1:
         return f"{subject} agree on the classification.{tail}"
-    detail = "; ".join(f"{name}: {short_label(v)}" for name, v in classified.items())
     return f"{subject} differ in classification. {detail}.{tail}"

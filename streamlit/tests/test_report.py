@@ -115,12 +115,35 @@ def test_report_embeds_the_font_and_has_no_external_url():
 def test_report_marks_unclassified_equations():
     html = render_report_html(_bundle(["gli_2012", "pereira_2007", "eccs_1993"]))
     classification = _section(html, "qd-classification")
-    assert classification.count(NOT_CLASSIFIED_LABEL) == 2
+    # ECCS 1993 has no lower limit and no z-score. Pereira 2007 has a
+    # lower limit, so it is classified by that limit, without a severity.
+    assert classification.count(NOT_CLASSIFIED_LABEL) == 1
     pills = dict(re.findall(
         r'<th scope="row">(.*?)</th><td><span class="qd-pill qd-pill-(\w+)"', classification))
-    assert pills == {"GLI-2012": "mild", "Pereira 2007 (Brazil)": "none",
+    assert pills == {"GLI-2012": "mild", "Pereira 2007 (Brazil)": "ungraded",
                      "ECCS/Quanjer 1993": "none"}
     assert "nan" not in _visible_text(html).lower()
+
+
+def test_report_states_the_lower_limit_basis_for_pereira():
+    from quadrant.fragments import LOWER_LIMIT_NOTE
+
+    bundle = _bundle(["gli_2012", "pereira_2007"])
+    pereira = bundle["equations"][1]
+    assert pereira["status"] == "classified"
+    assert pereira["severity"] is None
+    assert pereira["note"] == LOWER_LIMIT_NOTE
+    assert pereira["label"] == "Pattern consistent with obstructive, by lower limit"
+    assert bundle["equations"][0]["note"] is None
+    html = render_report_html(bundle)
+    classification = _section(html, "qd-classification")
+    assert f'<p class="qd-reason">{escape(LOWER_LIMIT_NOTE)}</p>' in classification
+    assert "published lower limit, with no severity grade" in classification
+    assert ".qd-pill-ungraded {" in html
+    # Pereira has no z-score, so the chart still leaves it out.
+    assert bundle["not_plotted"] == "Not plotted, no z-score: Pereira 2007 (Brazil)"
+    footer = re.search(r"<footer[^>]*>(.*?)</footer>", html, re.S).group(1)
+    assert "against that lower limit" in footer
 
 
 def test_report_escapes_labels():
@@ -176,7 +199,7 @@ def test_six_equations_render_with_eccs_and_pereira():
     assert html.count("<svg") == 1
     assert [e["status"] for e in bundle["equations"]] == [
         "classified", "classified", "classified", "classified",
-        "unclassified", "unclassified"]
+        "classified", "unclassified"]
     assert "nan" not in _visible_text(html).lower()
 
 

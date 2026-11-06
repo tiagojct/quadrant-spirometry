@@ -76,6 +76,8 @@ def test_pereira_2007_is_registered_as_a_regional_set():
     assert "137 to 182 cm" in spec.population
     assert "White Brazilian adults" in spec.caveat
     assert "z-score" in spec.caveat
+    assert "not classified" not in spec.caveat
+    assert "severity is not graded" in spec.caveat
     assert "pereira_2007" not in DEFAULT_KEYS
 
 

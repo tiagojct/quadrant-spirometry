@@ -20,9 +20,11 @@ from .fragments import (
     AGREE_TEXT,
     DIFFER_HEADING,
     MISSING_VALUE_TEXT,
+    basis_note,
     classification_summary,
     comparison_notes,
     pattern_label,
+    severity_key,
 )
 from .interpretation import interpret_spirometry
 from .matrix import MATRIX_LEGEND, matrix_frames
@@ -47,8 +49,10 @@ SVG_NAMESPACE = ' xmlns="http://www.w3.org/2000/svg"'
 STANDARD_NOTE = (
     "Pattern and severity follow the ATS/ERS 2022 interpretation strategy "
     "(Stanojevic et al., ERJ 2022). Severity is graded by the FEV1 z-score. "
-    "Restrictive and mixed patterns are suggestive only, because they need "
-    "static lung volumes to confirm."
+    "An equation that publishes a lower limit but no z-score is classified "
+    "from the observed values against that lower limit, with no severity "
+    "grade. Restrictive and mixed patterns are suggestive only, because they "
+    "need static lung volumes to confirm."
 )
 
 
@@ -101,9 +105,13 @@ def prepare_report_bundle(
             "message": None,
             "label": None,
             "severity": None,
+            "pill": None,
+            "note": None,
         }
         if isinstance(result, str):
-            entry.update(status="rejected", label=REJECTED_LABEL, message=result)
+            entry.update(
+                status="rejected", label=REJECTED_LABEL, message=result, pill="rejected"
+            )
             named_tables[spec.name] = None
         else:
             interpretation = interpretations.get(key) or interpret_spirometry(result)
@@ -115,6 +123,8 @@ def prepare_report_bundle(
                 status="classified" if classified else "unclassified",
                 label=pattern_label(interpretation),
                 severity=interpretation["severity"] if classified else None,
+                pill=(severity_key(interpretation) or "normal") if classified else "none",
+                note=basis_note(interpretation),
             )
         entries.append(entry)
 
@@ -160,24 +170,18 @@ def _inputs_html(bundle: dict) -> str:
     return f'<section class="qd-inputs"><h2>Inputs</h2><dl class="qd-facts">{facts}</dl></section>'
 
 
-def _pill_class(entry: dict) -> str:
-    if entry["status"] == "rejected":
-        return "rejected"
-    if entry["status"] == "unclassified":
-        return "none"
-    return entry["severity"] or "normal"
-
-
 def _classification_html(bundle: dict) -> str:
     rows = []
     for entry in bundle["equations"]:
-        reason = (
-            f'<p class="qd-reason">{escape(entry["message"])}</p>'
-            if entry["message"] else ""
+        # The rejection message, or the basis note of a result classified
+        # by lower limit.
+        reason = "".join(
+            f'<p class="qd-reason">{escape(text)}</p>'
+            for text in (entry["message"], entry["note"]) if text
         )
         rows.append(
             f'<tr><th scope="row">{escape(entry["name"])}</th><td>'
-            f'<span class="qd-pill qd-pill-{_pill_class(entry)}">'
+            f'<span class="qd-pill qd-pill-{entry["pill"]}">'
             f'{escape(entry["label"])}</span>{reason}</td></tr>'
         )
     extra = []

@@ -316,3 +316,115 @@ def test_each_svg_z_label_is_drawn_once_over_a_white_rect():
         width = float(re.search(r'width="([\d.]+)"', attrs).group(1))
         assert width >= len(value) * 0.6 * 12
     assert "paint-order" not in svg
+
+
+# Results classified from observed values against a published lower limit
+# (Pereira 2007): the label, colour and summary state the basis, and
+# severity is not graded.
+
+def _by_limit(pattern):
+    return {"pattern": pattern, "severity": None, "basis": "lower limit"}
+
+
+def test_pattern_label_states_the_lower_limit_basis():
+    from quadrant.fragments import LOWER_LIMIT_SUFFIX
+
+    assert LOWER_LIMIT_SUFFIX == ", by lower limit"
+    assert pattern_label(_by_limit("obstructive")) == (
+        "Pattern consistent with obstructive, by lower limit")
+    assert pattern_label(_by_limit("normal")) == "Pattern consistent with normal, by lower limit"
+    assert pattern_label(_by_limit("mixed pattern (suggestive)")) == (
+        "Consistent with mixed pattern (suggestive), by lower limit")
+    for pattern in ("obstructive", "normal"):
+        assert "·" not in pattern_label(_by_limit(pattern))
+    # The z-score labels do not change.
+    z = {"pattern": "obstructive", "severity": "mild", "basis": "z-score"}
+    assert pattern_label(z) == "Pattern consistent with obstructive · mild"
+
+
+def test_basis_note_for_each_basis():
+    from quadrant.fragments import LOWER_LIMIT_NOTE, SEVERITY_NOT_GRADED_TEXT, basis_note
+
+    assert SEVERITY_NOT_GRADED_TEXT == "Severity not graded (no z-score for this equation)"
+    assert LOWER_LIMIT_NOTE == (
+        "Pattern from observed values against the published lower limit. "
+        "Severity not graded (no z-score for this equation)."
+    )
+    assert basis_note(_by_limit("obstructive")) == LOWER_LIMIT_NOTE
+    assert basis_note(_by_limit("normal")) == LOWER_LIMIT_NOTE
+    assert basis_note({"pattern": "normal", "severity": None, "basis": "z-score"}) is None
+    assert basis_note(UNCLASSIFIED) is None
+
+
+def test_badge_colour_for_a_result_by_lower_limit():
+    # Green only for normal; an ungraded pattern below the limit is not green.
+    assert badge_colour(_by_limit("normal")) == "green"
+    for pattern in ("obstructive", "non-specific", "mixed pattern (suggestive)"):
+        assert badge_colour(_by_limit(pattern)) == "blue"
+
+
+def test_report_fragments_for_a_result_by_lower_limit():
+    from quadrant.fragments import BADGE_PALETTE
+
+    badge = render_pattern_badge(_by_limit("obstructive"))
+    assert "Pattern consistent with obstructive, by lower limit" in badge
+    bg, fg = BADGE_PALETTE["ungraded"]
+    assert f"background:{bg};color:{fg};" in badge
+    assert BADGE_PALETTE["ungraded"] != BADGE_PALETTE["normal"]
+    block = render_interpretation(_by_limit("obstructive"))
+    assert "obstructive" in block
+    assert "observed values against the published lower limit" in block
+    assert "not graded (no z-score for this equation)" in block
+    assert "pattern is normal" not in block
+    assert "Not classified" not in block
+
+
+def test_summary_states_the_basis_when_bases_differ():
+    gli = {"pattern": "obstructive", "severity": "moderate", "basis": "z-score"}
+    text = classification_summary({"gli_2012": gli, "pereira_2007": _by_limit("obstructive")})
+    assert text == (
+        "The equations give the same pattern. "
+        "GLI-2012: obstructive · moderate; Pereira 2007 (Brazil): obstructive. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade."
+    )
+    assert "agree on the classification" not in text
+    normal = {"pattern": "normal", "severity": None, "basis": "z-score"}
+    text = classification_summary({"gli_2012": normal, "pereira_2007": _by_limit("obstructive")})
+    assert text == (
+        "The equations give different patterns. "
+        "GLI-2012: normal; Pereira 2007 (Brazil): obstructive. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade."
+    )
+
+
+def test_summary_with_pereira_and_an_unclassified_equation():
+    text = classification_summary({"pereira_2007": _by_limit("normal"), "eccs_1993": UNCLASSIFIED})
+    assert text == (
+        "Only Pereira 2007 (Brazil) is classified, from observed values against "
+        "the published lower limit. Not classified: ECCS/Quanjer 1993."
+    )
+    gli = {"pattern": "normal", "severity": None, "basis": "z-score"}
+    text = classification_summary(
+        {"gli_2012": gli, "gli_2022": gli, "pereira_2007": _by_limit("normal"),
+         "eccs_1993": UNCLASSIFIED})
+    assert text == (
+        "The classified equations give the same pattern. "
+        "GLI-2012: normal; GLI-Global 2022: normal; Pereira 2007 (Brazil): normal. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade. "
+        "Not classified: ECCS/Quanjer 1993."
+    )
+
+
+def test_pereira_fragments_from_real_tables_have_no_nan_text():
+    from quadrant.interpretation import interpret_spirometry
+    from quadrant.wrappers import compute_pereira_2007
+
+    for fev1 in (2.7, 3.5):
+        result = interpret_spirometry(compute_pereira_2007(40, 170, 1, fev1, 4.5))
+        assert result["basis"] == "lower limit"
+        for text in (pattern_label(result), render_interpretation(result),
+                     render_pattern_badge(result)):
+            assert "nan" not in text.lower()

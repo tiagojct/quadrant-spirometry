@@ -30,6 +30,7 @@ from quadrant.fragments import (
     DIFFER_HEADING,
     MISSING_VALUE_TEXT,
     badge_colour,
+    basis_note,
     classification_summary,
     comparison_notes,
     input_problem,
@@ -333,6 +334,9 @@ with st.container(border=True, gap="medium"):
                     pattern_label(interpretations[spec.key]),
                     color=badge_colour(interpretations[spec.key]),
                 )
+                note = basis_note(interpretations[spec.key])
+                if note:
+                    st.caption(note)
             else:
                 st.caption("Enter values to classify.")
             if spec.caveat:
@@ -428,8 +432,12 @@ with st.expander("How to read this page", icon=":material/info:"):
         "-2.5 to -4.0, severe below -4.0.\n\n"
         "Restrictive and mixed patterns are suggestive only. Confirming them "
         "needs static lung volumes, which Quadrant does not accept.\n\n"
-        "An equation without a lower limit gives no z-score, so its result "
-        "is not classified."
+        "An equation that publishes a lower limit but no z-score (Pereira "
+        "2007) is classified from the observed values against that lower "
+        "limit, with the same rule: only a value below the limit counts. Its "
+        "severity is not graded, because severity needs the FEV1 z-score. An "
+        "equation with neither a lower limit nor a z-score (ECCS 1993) is not "
+        "classified."
     )
 
 st.caption(DISCLAIMER_TEXT)

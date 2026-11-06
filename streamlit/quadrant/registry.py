@@ -199,8 +199,7 @@ _SPECS = (
             "Reference population: White Brazilian adults. Use for "
             "comparison, not as the default. The paper gives the lower limit "
             "as the 5th percentile of the residuals and no residual standard "
-            "deviation, so no z-score is computed and the pattern is not "
-            "classified."
+            "deviation, so no z-score is computed and severity is not graded."
         ),
         compute=_pereira_2007,
     ),

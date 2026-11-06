@@ -120,6 +120,38 @@ def test_an_unclassified_equation_shows_the_label_and_no_nan():
     assert fev1.loc["ECCS/Quanjer 1993", "LLN"] == "\\-"
 
 
+def test_pereira_alone_is_classified_by_its_lower_limit():
+    from quadrant.fragments import LOWER_LIMIT_NOTE
+
+    at = _run(equations=["pereira_2007"], fev1=2.7)
+    assert not at.exception
+    text = _markdown(at)
+    assert "Pattern consistent with obstructive, by lower limit" in text
+    assert ":blue-badge[" in text
+    assert "Not classified" not in text
+    captions = [str(c.value) for c in at.caption]
+    assert LOWER_LIMIT_NOTE in captions
+    assert "Not plotted, no z-score: Pereira 2007 (Brazil)" in captions
+    assert "nan" not in _page_text(at).lower()
+
+
+def test_pereira_with_gli_2012_states_the_basis_in_the_summary():
+    at = _run(equations=["gli_2012", "pereira_2007"], fev1=2.7)
+    assert not at.exception
+    text = _markdown(at)
+    assert "The equations give the same pattern." in text
+    assert "Pereira 2007 (Brazil) is classified from observed values against the published lower limit" in text
+    assert "agree on the classification" not in text
+    assert "nan" not in _page_text(at).lower()
+
+
+def test_the_help_text_describes_the_lower_limit_basis():
+    at = _run()
+    text = _markdown(at)
+    assert "observed values against that lower limit" in text
+    assert "ECCS 1993" in text
+
+
 def test_six_equations_render_without_an_exception():
     at = _run(equations=list(EQUATIONS))
     assert not at.exception
