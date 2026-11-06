@@ -437,3 +437,36 @@ def test_comparison_notes_use_the_shared_below_rule():
     assert notes == []
     notes = comparison_notes(_table([-1.646, 0, 0]), _table([-1.0, 0, 0]))
     assert len(notes) == 1 and "(below LLN)" in notes[0]
+
+
+def test_summary_with_a_limit_result_says_when_z_score_severities_differ():
+    from quadrant.fragments import SEVERITY_DIFFERS_TEXT
+
+    assert SEVERITY_DIFFERS_TEXT == "Severity differs among the z-score equations."
+    mild = {"pattern": "obstructive", "severity": "mild", "basis": "z-score"}
+    moderate = {"pattern": "obstructive", "severity": "moderate", "basis": "z-score"}
+    pereira = _by_limit("obstructive")
+    text = classification_summary(
+        {"gli_2012": mild, "nhanes3": moderate, "pereira_2007": pereira})
+    assert text == (
+        "The equations give the same pattern. "
+        "GLI-2012: obstructive · mild; NHANES III: obstructive · moderate; "
+        "Pereira 2007 (Brazil): obstructive. "
+        "Severity differs among the z-score equations. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade."
+    )
+    # Same severity: no sentence.
+    same = classification_summary({"gli_2012": mild, "gli_2022": mild, "pereira_2007": pereira})
+    assert SEVERITY_DIFFERS_TEXT not in same
+    # One z-score equation only: nothing to compare.
+    one = classification_summary({"gli_2012": mild, "pereira_2007": pereira})
+    assert SEVERITY_DIFFERS_TEXT not in one
+    # An unclassified or rejected equation does not count.
+    other = classification_summary(
+        {"gli_2012": mild, "nhanes3": None, "eccs_1993": UNCLASSIFIED, "pereira_2007": pereira})
+    assert SEVERITY_DIFFERS_TEXT not in other
+    # Without a limit-based result the z-score sentences are unchanged.
+    z_only = classification_summary({"gli_2012": mild, "nhanes3": moderate})
+    assert z_only.startswith("The equations differ in classification.")
+    assert SEVERITY_DIFFERS_TEXT not in z_only

@@ -65,6 +65,7 @@ NOT_CLASSIFIED_LABEL = "Not classified (no lower limit and no z-score for this e
 LOWER_LIMIT_SUFFIX = ", by lower limit"
 LOWER_LIMIT_BASIS_TEXT = "from observed values against the published lower limit"
 SEVERITY_NOT_GRADED_TEXT = "Severity not graded (no z-score for this equation)"
+SEVERITY_DIFFERS_TEXT = "Severity differs among the z-score equations."
 LOWER_LIMIT_NOTE = (
     f"Pattern {LOWER_LIMIT_BASIS_TEXT}. {SEVERITY_NOT_GRADED_TEXT}."
 )
@@ -323,6 +324,8 @@ def classification_summary(interpretations: dict) -> str | None:
     When an equation is classified by lower limit (no z-score, so no
     severity), the sentence compares the patterns only, lists the result
     of each equation, and names the equations classified by lower limit.
+    When two or more z-score equations are classified and their severities
+    differ (None for a normal pattern counts as a value), it says so.
     """
     results = {
         EQUATIONS[key].name: value
@@ -352,7 +355,11 @@ def classification_summary(interpretations: dict) -> str | None:
             f"{_names(by_limit)} {verb} classified {LOWER_LIMIT_BASIS_TEXT}, "
             "with no severity grade."
         )
-        return f"{verdict} {detail}. {basis}{tail}"
+        by_z = [v["severity"] for v in classified.values() if not by_lower_limit(v)]
+        severity = (
+            f" {SEVERITY_DIFFERS_TEXT}" if len(by_z) >= 2 and len(set(by_z)) > 1 else ""
+        )
+        return f"{verdict} {detail}.{severity} {basis}{tail}"
     if len({short_label(v) for v in classified.values()}) == 1:
         return f"{subject} agree on the classification.{tail}"
     return f"{subject} differ in classification. {detail}.{tail}"
