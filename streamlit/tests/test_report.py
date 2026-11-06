@@ -2,6 +2,7 @@
 
 import re
 from datetime import datetime, timezone
+from html import escape
 
 import pytest
 
@@ -257,3 +258,13 @@ def test_the_gli_agreement_text_is_in_the_report():
     assert AGREE_TEXT in html and AGREE_NOTE in html
     one_gli = render_report_html(_bundle(["gli_2012", "nhanes3"], {**INPUTS, "fev1": 3.2}))
     assert AGREE_TEXT not in one_gli
+
+
+def test_the_report_names_the_parameters_on_different_sides():
+    from quadrant.fragments import AGREE_TEXT, DIFFER_HEADING
+
+    differ = _bundle(inputs={**INPUTS, "fev1": 2.9})
+    assert len(differ["gli_notes"]) == 1
+    html = render_report_html(differ)
+    assert escape(DIFFER_HEADING) in html and AGREE_TEXT not in html
+    assert "Classification differs" not in html

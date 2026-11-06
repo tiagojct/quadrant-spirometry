@@ -18,6 +18,7 @@ from .constants import DISCLAIMER_TEXT
 from .fragments import (
     AGREE_NOTE,
     AGREE_TEXT,
+    DIFFER_HEADING,
     MISSING_VALUE_TEXT,
     classification_summary,
     comparison_notes,
@@ -187,7 +188,7 @@ def _classification_html(bundle: dict) -> str:
     if bundle["gli_notes"]:
         items = "".join(f"<li>{escape(note)}</li>" for note in bundle["gli_notes"])
         extra.append(
-            "<p>Classification differs between the GLI equations for:</p>"
+            f"<p>{escape(DIFFER_HEADING)}</p>"
             f"<ul>{items}</ul>"
         )
     elif bundle["gli_notes"] == []:

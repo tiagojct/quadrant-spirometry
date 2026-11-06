@@ -26,8 +26,9 @@ from quadrant.constants import (
 )
 from quadrant.fragments import (
     AGREE_NOTE,
-    MISSING_VALUE_TEXT,
     AGREE_TEXT,
+    DIFFER_HEADING,
+    MISSING_VALUE_TEXT,
     badge_colour,
     classification_summary,
     comparison_notes,
@@ -358,7 +359,7 @@ with st.container(border=True):
         elif not notes:
             st.caption(f"{AGREE_TEXT} {AGREE_NOTE}")
         else:
-            st.markdown("Classification differs between the GLI equations for:")
+            st.markdown(DIFFER_HEADING)
             st.markdown("\n".join(f"- {note}" for note in notes))
 
 # 3. The numbers behind it: one table for each parameter.

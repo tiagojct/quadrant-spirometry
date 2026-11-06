@@ -4,6 +4,9 @@ import pandas as pd
 
 from quadrant.constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN
 from quadrant.fragments import (
+    AGREE_NOTE,
+    AGREE_TEXT,
+    DIFFER_HEADING,
     badge_colour,
     classification_summary,
     comparison_notes,
@@ -88,9 +91,11 @@ def test_interpretation_block_for_normal_and_impaired():
 
 def test_gli_comparison_reports_a_flip():
     agree = render_gli_comparison(_table([0, 0, 0]), _table([0, 0, 0]))
+    assert AGREE_TEXT in agree and AGREE_NOTE in agree
     assert "same side" in agree
     flip = render_gli_comparison(_table([-1.0, 0, 0]), _table([-2.0, 0, 0]))
-    assert "Classification differs" in flip and "FEV1" in flip
+    assert DIFFER_HEADING in flip and "FEV1" in flip
+    assert "Classification" not in flip
     assert "Enter values" in render_gli_comparison(None, _table([0, 0, 0]))
 
 
@@ -163,7 +168,7 @@ def test_badge_colour_is_gray_when_not_classified():
     assert badge_colour(UNCLASSIFIED) == "gray"
 
 
-def test_unclassified_results_render_and_are_skipped_in_the_summary():
+def test_unclassified_results_render_and_are_named_in_the_summary():
     assert "Not classified" in render_pattern_badge(UNCLASSIFIED)
     assert "Not classified" in render_interpretation(UNCLASSIFIED)
     assert (
@@ -172,7 +177,53 @@ def test_unclassified_results_render_and_are_skipped_in_the_summary():
     )
     assert "lower limit" not in render_interpretation(UNCLASSIFIED)
     normal = {"pattern": "normal", "severity": None}
-    assert classification_summary({"gli_2012": normal, "gli_2022": UNCLASSIFIED}) is None
+    assert (
+        classification_summary({"gli_2012": normal, "gli_2022": UNCLASSIFIED})
+        == "Only GLI-2012 is classified. Not classified: GLI-Global 2022."
+    )
+
+
+def test_agreement_texts_do_not_contradict_each_other():
+    # The GLI notes speak of the lower limit; only the summary sentence
+    # uses the word classification.
+    assert AGREE_TEXT.startswith("GLI-2012 and GLI-Global 2022 put every parameter")
+    assert AGREE_NOTE == "Their z-scores still differ, so the severity grade can differ."
+    assert DIFFER_HEADING == (
+        "GLI-2012 and GLI-Global 2022 put these parameters on different sides "
+        "of the lower limit of normal:"
+    )
+    for text in (AGREE_TEXT, AGREE_NOTE, DIFFER_HEADING):
+        assert "classif" not in text.lower()
+
+
+def test_classification_summary_names_unclassified_equations():
+    gli = _interp("obstructive", "moderate")
+    eccs = UNCLASSIFIED
+    # ECCS plus GLI-2012: one classified equation, so no agreement claim.
+    text = classification_summary({"gli_2012": gli, "eccs_1993": eccs})
+    assert text == "Only GLI-2012 is classified. Not classified: ECCS/Quanjer 1993."
+    assert "agree" not in text
+    # Only ECCS: one result, nothing to compare; the card says not classified.
+    assert classification_summary({"eccs_1993": eccs}) is None
+    # Pereira plus ECCS: no equation is classified.
+    text = classification_summary({"pereira_2007": UNCLASSIFIED, "eccs_1993": eccs})
+    assert text == (
+        "No equation is classified. "
+        "Not classified: Pereira 2007 (Brazil), ECCS/Quanjer 1993."
+    )
+    assert "agree" not in text
+    # Two classified equations and one without a classification.
+    both = {"gli_2012": gli, "gli_2022": gli, "eccs_1993": eccs}
+    assert classification_summary(both) == (
+        "The classified equations agree on the classification. "
+        "Not classified: ECCS/Quanjer 1993."
+    )
+    differ = {"gli_2012": gli, "gli_2022": _interp("normal"), "pereira_2007": UNCLASSIFIED}
+    assert classification_summary(differ) == (
+        "The classified equations differ in classification. "
+        "GLI-2012: obstructive \u00b7 moderate; GLI-Global 2022: normal. "
+        "Not classified: Pereira 2007 (Brazil)."
+    )
 
 
 # Equations without a z-score or without a lower limit give NaN in those

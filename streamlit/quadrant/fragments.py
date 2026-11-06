@@ -195,10 +195,14 @@ def comparison_notes(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.DataFrame
 
 
 AGREE_TEXT = (
-    "GLI-2012 and GLI-Global 2022 classify every parameter on the same side "
+    "GLI-2012 and GLI-Global 2022 put every parameter on the same side "
     "of the lower limit of normal."
 )
-AGREE_NOTE = "Differences in z-score remain, even when classification agrees."
+AGREE_NOTE = "Their z-scores still differ, so the severity grade can differ."
+DIFFER_HEADING = (
+    "GLI-2012 and GLI-Global 2022 put these parameters on different sides "
+    "of the lower limit of normal:"
+)
 
 
 def render_gli_comparison(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.DataFrame | None) -> str:
@@ -212,7 +216,7 @@ def render_gli_comparison(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.Data
             f'<p class="qd-muted">{AGREE_NOTE}</p></div>'
         )
     items = "".join(f"<li>{escape(note)}</li>" for note in notes)
-    return f"<div><p>Classification differs for:</p><ul>{items}</ul></div>"
+    return f"<div><p>{DIFFER_HEADING}</p><ul>{items}</ul></div>"
 
 
 def short_label(interpretation: dict) -> str:
@@ -228,19 +232,28 @@ def classification_summary(interpretations: dict) -> str | None:
     """One sentence on whether the equations give the same classification.
 
     interpretations is keyed by registry key; the sentence uses the
-    registry names. Equations without a classification are skipped.
-    Returns None when
-    fewer than two equations have a result. When the
-    equations differ, the sentence names each one.
+    registry names. An equation that rejected the inputs (None) is left
+    out. An equation without a classification (pattern None) is named at
+    the end, and the sentence then speaks of the classified equations.
+    Returns None when fewer than two equations have a result. The text
+    says that equations agree only when two or more are classified.
     """
-    available = {
+    results = {
         EQUATIONS[key].name: value
         for key, value in interpretations.items()
-        if value is not None and value["pattern"] is not None
+        if value is not None
     }
-    if len(available) < 2:
+    if len(results) < 2:
         return None
-    if len({short_label(v) for v in available.values()}) == 1:
-        return "The equations agree on the classification."
-    detail = "; ".join(f"{name}: {short_label(v)}" for name, v in available.items())
-    return f"The equations differ in classification. {detail}."
+    classified = {n: v for n, v in results.items() if v["pattern"] is not None}
+    unclassified = [n for n, v in results.items() if v["pattern"] is None]
+    tail = f" Not classified: {', '.join(unclassified)}." if unclassified else ""
+    if not classified:
+        return f"No equation is classified.{tail}"
+    if len(classified) == 1:
+        return f"Only {next(iter(classified))} is classified.{tail}"
+    subject = "The classified equations" if unclassified else "The equations"
+    if len({short_label(v) for v in classified.values()}) == 1:
+        return f"{subject} agree on the classification.{tail}"
+    detail = "; ".join(f"{name}: {short_label(v)}" for name, v in classified.items())
+    return f"{subject} differ in classification. {detail}.{tail}"

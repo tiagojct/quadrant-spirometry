@@ -138,10 +138,22 @@ def test_an_ethnicity_selector_appears_for_each_selected_equation_with_ethniciti
 
 
 def test_the_comparison_notes_need_both_gli_equations():
-    from quadrant.fragments import AGREE_TEXT
+    from quadrant.fragments import AGREE_NOTE, AGREE_TEXT, DIFFER_HEADING
 
-    assert AGREE_TEXT in _page_text(_run())
-    assert AGREE_TEXT not in _page_text(_run(equations=["gli_2012", "nhanes3"]))
+    agree = _page_text(_run())
+    assert f"{AGREE_TEXT} {AGREE_NOTE}" in agree and DIFFER_HEADING not in agree
+    one_gli = _page_text(_run(equations=["gli_2012", "nhanes3"]))
+    assert AGREE_TEXT not in one_gli and DIFFER_HEADING not in one_gli
+
+
+def test_the_comparison_notes_name_the_parameters_on_different_sides():
+    from quadrant.fragments import AGREE_TEXT, DIFFER_HEADING
+
+    # Man, 40 years, 170 cm, FVC 4.0 L: at FEV1 2.9 L GLI-2012 puts FEV1
+    # below the lower limit and GLI-Global 2022 within it.
+    text = _page_text(_run(age_years=40.0, height_cm=170.0, sex="Male", fev1=2.9, fvc=4.0))
+    assert DIFFER_HEADING in text and AGREE_TEXT not in text
+    assert "FEV1: GLI-2012 z = -1.91 (below LLN)" in text
 
 
 def test_the_chart_is_hidden_when_inputs_are_unusable():
