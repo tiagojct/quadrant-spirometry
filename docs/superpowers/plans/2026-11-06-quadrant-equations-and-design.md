@@ -26,7 +26,7 @@
 
 ## Review Focus
 
-- An equation with no published lower limit (ECCS 1993): the z-score must show as "not available", never as `nan`, and the classification must read "not classified", never "normal". Test in Task 1 and Task 5.
+- An equation that gives no z-score (ECCS 1993 has no lower limit; Pereira 2007 has a lower limit but no z-score): the z-score must show as "not available", never as `nan`, and the classification must read "not classified", never "normal". Test in Task 1, Task 4 and Task 5.
 - A subject outside one equation's age or height range: that equation shows its own message and the others still compute. Test in Task 3, Task 4 and Task 9.
 - FEV1/FVC units: a ratio of 0.75 must give a predicted ratio near 0.8 in every family, never 80. Test in Task 3, Task 4, Task 5 and Task 6.
 - Sex mapping: for every equation the predicted FEV1 of a 170 cm man is higher than that of a 170 cm woman of the same age. Test in Task 3, Task 4, Task 5 and Task 6.
@@ -48,11 +48,11 @@
   - `@dataclass(frozen=True) class EquationSpec: key: str; name: str; citation: str; population: str; age_range: tuple[float, float]; ethnicities: dict[str, int] | None; has_lower_limit: bool; group: str; caveat: str | None; compute: Callable[[Subject, int | None], pd.DataFrame]`. `group` is one of `"recommended"`, `"historical"`, `"regional"`.
   - `EQUATIONS: dict[str, EquationSpec]` in display order. `DEFAULT_KEYS = ("gli_2012", "gli_2022", "nhanes3")`.
   - `compute_equation(key: str, subject: Subject, ethnicity_code: int | None = None) -> pd.DataFrame`
-  - `interpret_spirometry` returns `pattern=None` and `severity=None` when any z-score is NaN. `pattern_label(None-pattern)` returns "Not classified (no published lower limit)". `badge_colour` returns `"gray"` for it. `classification_summary` skips equations whose pattern is None.
+  - `interpret_spirometry` returns `pattern=None` and `severity=None` when any z-score is NaN. `pattern_label(None-pattern)` returns "Not classified (no z-score for this equation)". `badge_colour` returns `"gray"` for it. `classification_summary` skips equations whose pattern is None.
 
 - [ ] **Step 1: Write failing tests** in `test_registry.py`: `test_default_keys_are_the_three_current_equations`, `test_every_spec_has_population_citation_and_group`, `test_regional_and_historical_sets_are_not_default`, `test_compute_equation_matches_the_direct_wrapper` (gli_2012 for 40 y, 170 cm, male, FEV1 3.0, FVC 4.0). In `test_interpretation.py`: `test_a_table_with_nan_limits_is_not_classified` asserts `interpret_spirometry(df)["pattern"] is None`; in `test_fragments_visuals.py`: `test_pattern_label_for_an_unclassified_result` and `test_badge_colour_is_gray_when_not_classified`.
 - [ ] **Step 2: Run** `cd streamlit && uv run pytest -q`. Expected: the new tests fail.
-- [ ] **Step 3: Implement** `registry.py` with the three current equations, each `compute` calling the existing wrapper. In `wrappers._long_table` add parameter `limits_required: bool = True`. When False, NaN is allowed in `lln` and `z_score` only; NaN in `predicted` or `percent_predicted` still raises `ValueError`. Update `interpret_spirometry`, `pattern_label`, `badge_colour`, `classification_summary` as stated.
+- [ ] **Step 3: Implement** `registry.py` with the three current equations, each `compute` calling the existing wrapper. In `wrappers._long_table` add parameter `limits_required: bool = True`. When False, NaN is allowed in `lln` and `z_score` only; NaN in `predicted` or `percent_predicted` still raises `ValueError`. `z_score` may be NaN only for an equation that publishes no z-score or no lower limit; `lln` may be NaN only when the equation publishes no lower limit. Update `interpret_spirometry`, `pattern_label`, `badge_colour`, `classification_summary` as stated.
 - [ ] **Step 4: Run** the full suite. Expected: all pass.
 - [ ] **Step 5: Commit** "Add an equation registry and allow missing lower limits".
 

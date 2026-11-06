@@ -164,7 +164,7 @@ UNCLASSIFIED = {"pattern": None, "severity": None}
 
 
 def test_pattern_label_for_an_unclassified_result():
-    assert pattern_label(UNCLASSIFIED) == "Not classified (no published lower limit)"
+    assert pattern_label(UNCLASSIFIED) == "Not classified (no z-score for this equation)"
 
 
 def test_badge_colour_is_gray_when_not_classified():
@@ -174,5 +174,10 @@ def test_badge_colour_is_gray_when_not_classified():
 def test_unclassified_results_render_and_are_skipped_in_the_summary():
     assert "Not classified" in render_pattern_badge(UNCLASSIFIED)
     assert "Not classified" in render_interpretation(UNCLASSIFIED)
+    assert (
+        "This equation gives no z-score, so the result is not classified."
+        in render_interpretation(UNCLASSIFIED)
+    )
+    assert "lower limit" not in render_interpretation(UNCLASSIFIED)
     normal = {"pattern": "normal", "severity": None}
     assert classification_summary({"gli_2012": normal, "gli_2022": UNCLASSIFIED}) is None

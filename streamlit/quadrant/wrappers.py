@@ -25,7 +25,6 @@ from .constants import (
     JRS_FEMALE_MAX_AGE_YEARS,
     NHANES3_AGE_RANGE_YEARS,
     NHANES3_ETHNICITY,
-    PEREIRA_AGE_RANGE_YEARS,
     PEREIRA_FEMALE_AGE_RANGE_YEARS,
     PEREIRA_FEMALE_HEIGHT_RANGE_CM,
     PEREIRA_MALE_AGE_RANGE_YEARS,
@@ -139,7 +138,7 @@ def _long_table(
     NA outside the domain of an equation. That becomes a ValueError here
     so that the operator sees the reason.
 
-    Some published equations have no lower limit. With
+    Some published equations give no z-score, or no lower limit. With
     limits_required=False, NaN is allowed in lln and z_score only.
     NaN in predicted or percent_predicted still raises.
     """
@@ -182,6 +181,8 @@ def _regression_table(
 ) -> pd.DataFrame:
     """Long-form table for a pyspiro regression equation without a z-score.
 
+    lead_args is (sex, age, height) in pyspiro codes and units.
+
     _long_table reads the predicted value from lms(), which returns NA for
     regression classes such as PEREIRA_2007. This helper reads the
     predicted value and the lower limit from the regression result of
@@ -191,15 +192,16 @@ def _regression_table(
     limit as a percentile of the residuals and no residual standard
     deviation.
     """
-    lead = (*lead_args[:3], None, None)  # sex, age, height, ethnicity, weight
+    sex, age, height = lead_args
     rows = []
     for parameter in SPIROMETRY_PARAMS:
         scale = ratio_scale if parameter == "FEV1FVC" else 1.0
         value = observed[parameter] * scale
-        result = reference._scalar_regression(*lead, param_codes[parameter])
-        percent = reference.percent(
-            *lead_args[:3], parameter=param_codes[parameter], value=value
+        code = param_codes[parameter]
+        result = reference._scalar_regression(
+            sex, age, height, ethnicity=None, weight=None, parameter=code
         )
+        percent = reference.percent(sex, age, height, parameter=code, value=value)
         if result is None or any(
             v is None or pd.isna(v) for v in (result.pred, result.lln, percent)
         ):
@@ -329,9 +331,10 @@ def compute_pereira_2007(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFr
     137 to 182 cm. The paper gives the lower limit as the 5th percentile
     of the residuals and no residual standard deviation, so z_score is NaN.
     """
+    # Plausible range first (types, sex code, values). The sex-specific
+    # ranges below are narrower and give a message that names the sex.
     validate_subject_inputs(
         age_years=age_years,
-        age_range=PEREIRA_AGE_RANGE_YEARS,
         height_cm=height_cm,
         sex_code=sex_code,
         fev1=fev1,

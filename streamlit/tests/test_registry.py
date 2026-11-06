@@ -71,6 +71,8 @@ def test_pereira_2007_is_registered_as_a_regional_set():
     assert spec.has_lower_limit is True
     assert spec.age_range == (20, 86)
     assert spec.population.startswith("White Brazilian adults, 20 to 86 years")
+    assert "152 to 192 cm" in spec.population
+    assert "137 to 182 cm" in spec.population
     assert "White Brazilian adults" in spec.caveat
     assert "z-score" in spec.caveat
     assert "pereira_2007" not in DEFAULT_KEYS

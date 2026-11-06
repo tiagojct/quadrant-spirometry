@@ -48,7 +48,7 @@ def input_problem(fev1, fvc) -> str | None:
 # Streamlit badge colour for each severity level.
 BADGE_COLOURS = {None: "green", "mild": "yellow", "moderate": "orange", "severe": "red"}
 
-NOT_CLASSIFIED_LABEL = "Not classified (no published lower limit)"
+NOT_CLASSIFIED_LABEL = "Not classified (no z-score for this equation)"
 
 
 def pattern_label(interpretation: dict) -> str:
@@ -99,8 +99,8 @@ def render_interpretation(interpretation: dict | None) -> str:
         return (
             '<div><p class="qd-line"><span class="qd-muted">Pattern: </span>'
             "<span>Not classified</span></p>"
-            '<p class="qd-line qd-muted">This equation has no published '
-            "lower limit of normal.</p></div>"
+            '<p class="qd-line qd-muted">This equation gives no z-score, '
+            "so the result is not classified.</p></div>"
         )
     pattern_line = (
         '<p class="qd-line"><span class="qd-muted">Pattern: </span>'

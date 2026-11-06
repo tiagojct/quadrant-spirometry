@@ -22,7 +22,7 @@ Date: 2026-11-06. Branch: streamlit-port. Scope: the Python app in `streamlit/` 
 
 ## Requirements
 
-- Every family returns the same long-form table. `lln` and `z_score` may be NaN only for an equation that publishes no lower limit.
+- Every family returns the same long-form table. `z_score` may be NaN only for an equation that publishes no z-score or no lower limit (ECCS 1993 and Pereira 2007). `lln` may be NaN only when the equation publishes no lower limit.
 - An equation without a lower limit shows "not classified". It never shows "normal".
 - Each equation states its population and age range. A regional or historical set carries a short caveat.
 - The app keeps no patient data. Session state holds only the current inputs and the pinned what-if values for the session.

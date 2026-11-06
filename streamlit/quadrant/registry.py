@@ -176,8 +176,8 @@ _SPECS = (
         name="Pereira 2007 (Brazil)",
         citation="Pereira et al., J Bras Pneumol 2007",
         population=(
-            "White Brazilian adults, 20 to 86 years (men 26 to 86, women "
-            "20 to 85)"
+            "White Brazilian adults, 20 to 86 years (men 26 to 86 years "
+            "and 152 to 192 cm, women 20 to 85 years and 137 to 182 cm)"
         ),
         age_range=PEREIRA_AGE_RANGE_YEARS,
         ethnicities=None,

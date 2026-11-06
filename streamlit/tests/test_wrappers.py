@@ -280,12 +280,16 @@ PEREIRA_CASES = [
     (1, 60, 165, 3.2, 4.2),
     (1, 70, 180, 2.0, 4.0),
     (1, 86, 155, 1.4, 2.0),
+    (1, 45, 152, 2.9, 3.6),
+    (1, 55, 192, 4.0, 5.2),
     (2, 20, 165, 3.5, 4.1),
     (2, 30, 150, 2.0, 2.4),
     (2, 40, 160, 2.6, 3.3),
     (2, 60, 170, 1.8, 3.0),
     (2, 75, 180, 2.4, 2.9),
     (2, 85, 155, 1.5, 2.2),
+    (2, 50, 137, 1.8, 2.2),
+    (2, 35, 182, 3.2, 4.0),
 ]
 
 
@@ -328,27 +332,32 @@ def test_pereira_cases_fall_on_both_sides_of_the_lower_limit():
         assert any(below) and not all(below), parameter
 
 
+PEREIRA_MALE_AGE_MESSAGE = "for men the Pereira 2007 equations cover 26 to 86 years"
+PEREIRA_FEMALE_AGE_MESSAGE = "for women the Pereira 2007 equations cover 20 to 85 years"
+PEREIRA_MALE_HEIGHT_MESSAGE = "for men the Pereira 2007 equations cover 152 to 192 cm"
+PEREIRA_FEMALE_HEIGHT_MESSAGE = "for women the Pereira 2007 equations cover 137 to 182 cm"
+
+
 def test_pereira_age_range():
-    for sex_code in (1, 2):
-        with pytest.raises(ValueError, match="between 20 and 86"):
-            compute_pereira_2007(19, 165, sex_code, 3.0, 4.0)
-        with pytest.raises(ValueError, match="between 20 and 86"):
-            compute_pereira_2007(87, 165, sex_code, 2.0, 3.0)
+    for age in (19, 25.9, 87):
+        with pytest.raises(ValueError, match=PEREIRA_MALE_AGE_MESSAGE):
+            compute_pereira_2007(age, 170, 1, 3.0, 4.0)
+    for age in (19, 85.5, 87):
+        with pytest.raises(ValueError, match=PEREIRA_FEMALE_AGE_MESSAGE):
+            compute_pereira_2007(age, 160, 2, 2.0, 3.0)
     assert len(compute_pereira_2007(20, 160, 2, 2.8, 3.4)) == 3
     assert len(compute_pereira_2007(86, 170, 1, 2.0, 3.0)) == 3
     assert len(compute_pereira_2007(26, 170, 1, 3.5, 4.5)) == 3
     assert len(compute_pereira_2007(85, 160, 2, 1.5, 2.0)) == 3
 
 
-def test_pereira_sex_specific_ranges_follow_the_paper():
-    with pytest.raises(ValueError, match="for men .* 26 to 86 years"):
-        compute_pereira_2007(25.9, 170, 1, 3.5, 4.5)
-    with pytest.raises(ValueError, match="for women .* 20 to 85 years"):
-        compute_pereira_2007(85.5, 160, 2, 1.5, 2.0)
-    with pytest.raises(ValueError, match="for men .* 152 to 192 cm"):
-        compute_pereira_2007(40, 150, 1, 3.0, 4.0)
-    with pytest.raises(ValueError, match="for women .* 137 to 182 cm"):
-        compute_pereira_2007(40, 185, 2, 3.0, 4.0)
+def test_pereira_height_range():
+    for height in (151.9, 192.1):
+        with pytest.raises(ValueError, match=PEREIRA_MALE_HEIGHT_MESSAGE):
+            compute_pereira_2007(40, height, 1, 3.0, 4.0)
+    for height in (136.9, 182.1):
+        with pytest.raises(ValueError, match=PEREIRA_FEMALE_HEIGHT_MESSAGE):
+            compute_pereira_2007(40, height, 2, 2.5, 3.0)
     assert len(compute_pereira_2007(40, 152, 1, 3.0, 4.0)) == 3
     assert len(compute_pereira_2007(40, 192, 1, 3.0, 4.0)) == 3
     assert len(compute_pereira_2007(40, 137, 2, 2.0, 2.5)) == 3
