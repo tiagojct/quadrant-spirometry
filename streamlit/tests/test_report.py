@@ -87,10 +87,13 @@ def test_report_has_the_disclaimer_and_citations():
         spec = EQUATIONS[key]
         assert spec.citation in html
         assert spec.population.rstrip(".") in html
+        # The population text states the age range, so the notes add no
+        # separate age sentence.
         low, high = spec.age_range
-        assert f"Age range: {low:g} to {high:g} years" in html
+        assert f"{low:g} to {high:g}" in spec.population
         if spec.caveat:
             assert spec.caveat in html
+    assert "Age range:" not in html
 
 
 def test_report_embeds_the_font_and_has_no_external_url():
@@ -112,6 +115,10 @@ def test_report_marks_unclassified_equations():
     html = render_report_html(_bundle(["gli_2012", "pereira_2007", "eccs_1993"]))
     classification = _section(html, "qd-classification")
     assert classification.count(NOT_CLASSIFIED_LABEL) == 2
+    pills = dict(re.findall(
+        r'<th scope="row">(.*?)</th><td><span class="qd-pill qd-pill-(\w+)"', classification))
+    assert pills == {"GLI-2012": "mild", "Pereira 2007 (Brazil)": "none",
+                     "ECCS/Quanjer 1993": "none"}
     assert "nan" not in _visible_text(html).lower()
 
 
@@ -226,3 +233,27 @@ def test_the_report_text_follows_the_wording_rules():
     text = _visible_text(html)
     assert "—" not in text and "!" not in text
     assert "diagnos" not in text.lower()
+
+
+def test_the_disclaimer_is_also_under_the_header():
+    html = render_report_html(_bundle(list(EQUATIONS)))
+    header = re.search(r"<header[^>]*>(.*?)</header>", html, re.S).group(1)
+    assert DISCLAIMER_TEXT in header
+    assert html.count(DISCLAIMER_TEXT) == 2
+
+
+def test_the_footer_disclaimer_has_regular_weight():
+    css = re.search(r"<style>(.*?)</style>", render_report_html(_bundle()), re.S).group(1)
+    rule = re.search(r"\.qd-foot \.qd-disclaimer \{([^}]*)\}", css).group(1)
+    assert "font-weight: 400" in rule and "font-weight: 600" not in rule
+
+
+def test_the_gli_agreement_text_is_in_the_report():
+    from quadrant.fragments import AGREE_NOTE, AGREE_TEXT
+
+    agree = _bundle(inputs={**INPUTS, "fev1": 3.2})
+    assert agree["gli_notes"] == []
+    html = render_report_html(agree)
+    assert AGREE_TEXT in html and AGREE_NOTE in html
+    one_gli = render_report_html(_bundle(["gli_2012", "nhanes3"], {**INPUTS, "fev1": 3.2}))
+    assert AGREE_TEXT not in one_gli

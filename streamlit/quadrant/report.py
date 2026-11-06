@@ -16,6 +16,8 @@ import pandas as pd
 from .charts import LLN_NOTE, not_plotted_caption
 from .constants import DISCLAIMER_TEXT
 from .fragments import (
+    AGREE_NOTE,
+    AGREE_TEXT,
     MISSING_VALUE_TEXT,
     classification_summary,
     comparison_notes,
@@ -180,12 +182,16 @@ def _classification_html(bundle: dict) -> str:
     extra = []
     if bundle["summary"]:
         extra.append(f'<p>{escape(bundle["summary"])}</p>')
+    # None: the report lacks one of the two GLI equations. An empty list:
+    # they agree, and the report says so, as the page does.
     if bundle["gli_notes"]:
         items = "".join(f"<li>{escape(note)}</li>" for note in bundle["gli_notes"])
         extra.append(
             "<p>Classification differs between the GLI equations for:</p>"
             f"<ul>{items}</ul>"
         )
+    elif bundle["gli_notes"] == []:
+        extra.append(f"<p>{escape(AGREE_TEXT)} {escape(AGREE_NOTE)}</p>")
     summary = f'<div class="qd-summary">{"".join(extra)}</div>' if extra else ""
     return (
         '<section class="qd-classification"><h2>Classification</h2>'
@@ -245,14 +251,13 @@ def _matrix_html(bundle: dict) -> str:
 def _notes_html(bundle: dict) -> str:
     notes = []
     for entry in bundle["equations"]:
-        low, high = entry["age_range"]
         caveat = (
             f'<p class="qd-caveat">{escape(entry["caveat"])}</p>' if entry["caveat"] else ""
         )
         notes.append(
             f'<div class="qd-note"><h3>{escape(entry["name"])}</h3>'
-            f'<p>{escape(entry["citation"])}. {escape(entry["population"])}. '
-            f"Age range: {low:g} to {high:g} years.</p>{caveat}</div>"
+            f'<p>{escape(entry["citation"])}. {escape(entry["population"])}.</p>'
+            f"{caveat}</div>"
         )
     return (
         '<section class="qd-notes"><h2>Equation notes</h2>'
@@ -272,7 +277,10 @@ def render_report_html(bundle: dict) -> str:
         f"<style>{report_css()}</style></head><body><main>"
         '<header class="qd-head"><div><p class="qd-kicker">Quadrant</p>'
         "<h1>Spirometry reference values</h1></div>"
-        f'<p class="qd-stamp">Generated {escape(stamp)}</p></header>'
+        f'<p class="qd-stamp">Generated {escape(stamp)}</p>'
+        # A copy of the disclaimer, so that page 1 has it when the footer
+        # goes to page 2.
+        f'<p class="qd-head-note">{escape(DISCLAIMER_TEXT)}</p></header>'
         f"{_inputs_html(bundle)}{_classification_html(bundle)}{_chart_html(bundle)}"
         f"{_matrix_html(bundle)}{_notes_html(bundle)}"
         '<footer class="qd-foot">'

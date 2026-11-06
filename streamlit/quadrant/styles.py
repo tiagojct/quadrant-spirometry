@@ -90,6 +90,7 @@ section {{ border-top: 1px solid {RULE}; padding: 0.8rem 0 0.6rem; }}
              letter-spacing: 0.08em; text-transform: uppercase; color: {MUTED}; }}
 .qd-stamp {{ margin: 0; font-size: 0.85rem; color: {MUTED};
             font-variant-numeric: tabular-nums; }}
+.qd-head-note {{ flex-basis: 100%; margin: 0; font-size: 0.8rem; color: {INK}; }}
 
 .qd-facts {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
             gap: 0.35rem 1rem; margin: 0; }}
@@ -134,7 +135,7 @@ section {{ border-top: 1px solid {RULE}; padding: 0.8rem 0 0.6rem; }}
 
 .qd-foot {{ border-top: 2px solid {NAVY}; margin-top: 0.4rem; padding-top: 0.5rem; }}
 .qd-foot p {{ font-size: 0.8rem; color: {MUTED}; }}
-.qd-foot .qd-disclaimer {{ font-size: 0.9rem; font-weight: 600; color: {INK}; }}
+.qd-foot .qd-disclaimer {{ font-size: 0.9rem; font-weight: 400; color: {INK}; }}
 
 /* Phone: the chart keeps a readable text size and scrolls inside its frame. */
 @media (max-width: 640px) {{
