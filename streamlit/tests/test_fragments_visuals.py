@@ -249,17 +249,19 @@ def test_the_ratio_is_labelled_fev1_fvc_in_the_notes_and_the_svg():
     assert ">FEV1/FVC</text>" in svg and ">FEV1FVC<" not in svg
 
 
-def test_the_svg_z_labels_have_the_halo_of_the_page_chart():
+def test_each_svg_z_label_is_drawn_once_over_a_white_rect():
     import re
 
     from quadrant.charts import LABEL_HALO
 
     svg = cross_family_chart_svg({"GLI-2012": _table([-1.0, -2.0, -3.0])})
-    labels = re.findall(r"<text[^>]*>-[123]\.00</text>", svg)
-    assert len(labels) == 3
-    for label in labels:
-        assert 'paint-order="stroke"' in label
-        assert f'stroke="{LABEL_HALO["stroke"]}"' in label
-        assert f'stroke-width="{LABEL_HALO["strokeWidth"]}"' in label
-        assert f'stroke-linejoin="{LABEL_HALO["strokeJoin"]}"' in label
-        assert f'stroke-opacity="{LABEL_HALO["strokeOpacity"]}"' in label
+    for value in ("-1.00", "-2.00", "-3.00"):
+        assert len(re.findall(rf"<text[^>]*>{re.escape(value)}</text>", svg)) == 1
+        backing = re.search(rf"<rect ([^>]*)/><text[^>]*>{re.escape(value)}</text>", svg)
+        assert backing, value
+        attrs = backing.group(1)
+        assert 'fill="#ffffff"' in attrs and 'rx="2"' in attrs
+        assert f'fill-opacity="{LABEL_HALO["strokeOpacity"]}"' in attrs
+        width = float(re.search(r'width="([\d.]+)"', attrs).group(1))
+        assert width >= len(value) * 0.6 * 12
+    assert "paint-order" not in svg

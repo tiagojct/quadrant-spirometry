@@ -29,13 +29,30 @@ SEVERITY_BANDS = (
     {"z_lo": LLN_Z, "z_hi": Z_AXIS_MAX, "fill": "#86efac", "label": "normal"},
 )
 
-# White halo behind the z labels, the same as LABEL_HALO of the page
-# chart. paint-order draws the stroke first, so the fill stays sharp.
-Z_LABEL_HALO = (
-    f'stroke="{LABEL_HALO["stroke"]}" stroke-width="{LABEL_HALO["strokeWidth"]}" '
-    f'stroke-linejoin="{LABEL_HALO["strokeJoin"]}" '
-    f'stroke-opacity="{LABEL_HALO["strokeOpacity"]}" paint-order="stroke"'
-)
+# White backing behind each z label, so the label reads on every band and
+# over the LLN line. A rect, not a text stroke: a stroked copy of the text
+# doubles the label in the text layer of a PDF. The opacity matches
+# LABEL_HALO of the page chart. The width per character is a conservative
+# value for Source Sans 3 Semibold digits (about 0.5 em) at this size.
+Z_LABEL_FONT_SIZE = 12
+Z_LABEL_CHAR_WIDTH = 0.62 * Z_LABEL_FONT_SIZE
+Z_LABEL_PAD = 2.0
+Z_LABEL_BACKING = {"fill": LABEL_HALO["stroke"], "opacity": LABEL_HALO["strokeOpacity"], "rx": 2}
+
+
+def z_label_svg(x: float, baseline: float, text: str) -> str:
+    """A z label drawn once, over a white rounded rect."""
+    width = len(text) * Z_LABEL_CHAR_WIDTH + 2 * Z_LABEL_PAD
+    height = Z_LABEL_FONT_SIZE + Z_LABEL_PAD
+    top = baseline - 0.8 * Z_LABEL_FONT_SIZE - Z_LABEL_PAD / 2
+    return (
+        f'<rect x="{x - Z_LABEL_PAD:.2f}" y="{top:.2f}" width="{width:.2f}" '
+        f'height="{height:.2f}" rx="{Z_LABEL_BACKING["rx"]}" '
+        f'fill="{Z_LABEL_BACKING["fill"]}" '
+        f'fill-opacity="{Z_LABEL_BACKING["opacity"]}" />'
+        f'<text x="{x:.2f}" y="{baseline:.2f}" font-size="{Z_LABEL_FONT_SIZE}" '
+        f'text-anchor="start" fill="#0f172a" font-weight="700">{text}</text>'
+    )
 
 
 def z_to_x(z: float, pad_left: float, plot_width: float) -> float:
@@ -173,9 +190,7 @@ def cross_family_chart_svg(family_tables: dict) -> str:
             cy = y + (j + 0.5) * (row_height / n_equations)
             markers.append(
                 marker_svg(shape, cx, cy, 7, colour, "marker")
-                + f'<text x="{cx + 13:.2f}" y="{cy + 4:.2f}" font-size="12" '
-                f'text-anchor="start" fill="#0f172a" font-weight="700" {Z_LABEL_HALO}>'
-                f"{z:.2f}</text>"
+                + z_label_svg(cx + 13, cy + 4, f"{z:.2f}")
             )
         rows.append(bands + label + "".join(markers))
 
