@@ -43,15 +43,17 @@ STYLES = (
 # Legend columns of the static SVG chart in the report (fixed width).
 LEGEND_COLUMNS = 4
 
-# Legend columns of the page chart. Vega legends do not wrap, so the
-# legends keep two columns, which fit a 390 px phone screen.
+# Legend columns of the page chart. Vega legends do not wrap. The
+# equation names fit two columns on a 390 px phone screen; the severity
+# labels are longer and use one column.
 CHART_LEGEND_COLUMNS = 2
+SEVERITY_LEGEND_COLUMNS = 1
 
 # Chart height: a base plus one step for each plotted equation. Streamlit
-# fits the legends and the axis (about 240 px) inside this height, so the
+# fits the legends and the axis (about 280 px) inside this height, so the
 # base keeps three readable parameter rows for a single equation. The step
 # also covers the extra legend row for every second equation.
-CHART_BASE_HEIGHT = 340
+CHART_BASE_HEIGHT = 380
 CHART_EQUATION_HEIGHT = 60
 
 # Z-score labels: dark text over a light halo, readable on every band in
@@ -182,7 +184,7 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
                     title="Severity band (FEV1 z-score)",
                     orient="bottom",
                     direction="horizontal",
-                    columns=CHART_LEGEND_COLUMNS,
+                    columns=SEVERITY_LEGEND_COLUMNS,
                     symbolOpacity=0.6,
                     labelFontSize=12,
                     titleFontSize=12,

@@ -115,17 +115,18 @@ def test_chart_skips_nan_z_scores():
 
 def test_chart_height_grows_with_equations():
     # Streamlit fits the legends and the axis inside this height, about
-    # 220 px, so one equation still needs room for three parameter rows.
+    # 280 px, so one equation still needs room for three parameter rows.
     for n in (1, 3, 6, 8):
         tables = {f"Eq {i}": _table([-1, -2, -3]) for i in range(n)}
-        assert comparison_chart(tables).to_dict()["height"] == 340 + 60 * n
+        assert comparison_chart(tables).to_dict()["height"] == 380 + 60 * n
     spec = comparison_chart({f"Eq {i}": _table([0, 0, 0]) for i in range(8)}).to_dict()
     legend = spec["layer"][4]["encoding"]["color"]["legend"]
     # Vega legends do not wrap: two columns fit a phone screen.
     assert legend["columns"] == 2
     # Above the plot, so it does not share a row with the severity legend.
     assert legend["orient"] == "top"
-    assert spec["layer"][0]["encoding"]["fill"]["legend"]["columns"] == 2
+    # The severity labels are longer: one column.
+    assert spec["layer"][0]["encoding"]["fill"]["legend"]["columns"] == 1
 
 
 def test_the_axis_title_is_short_and_the_lln_note_is_a_caption():
