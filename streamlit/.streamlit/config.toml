@@ -11,8 +11,10 @@ gatherUsageStats = false
 enableStaticServing = true
 
 [theme]
-font = "Source Sans 3, sans-serif"
-headingFont = "Source Sans 3, sans-serif"
+# The family name is quoted: a CSS family name with a word that starts
+# with a digit is invalid unquoted, and the browser then drops the rule.
+font = "'Source Sans 3', sans-serif"
+headingFont = "'Source Sans 3', sans-serif"
 baseFontSize = 16
 # Title, section, card.
 headingFontSizes = ["2.6rem", "1.6rem", "1.2rem"]
@@ -21,13 +23,13 @@ baseRadius = "0.4rem"
 showWidgetBorder = true
 
 [[theme.fontFaces]]
-family = "Source Sans 3"
+family = "'Source Sans 3'"
 url = "app/static/fonts/SourceSans3-Regular.woff2"
 weight = "400"
 style = "normal"
 
 [[theme.fontFaces]]
-family = "Source Sans 3"
+family = "'Source Sans 3'"
 url = "app/static/fonts/SourceSans3-Semibold.woff2"
 weight = "600"
 style = "normal"
