@@ -23,16 +23,20 @@ The wrapper tests read the CSV fixtures in `../tests/testthat/fixtures/`. Those 
 
 ## Reference equations
 
-The operator selects the equations in the sidebar. The selector has three groups:
+The operator selects the equations in the sidebar. The selector has three groups: recommended, historical and regional. Verification status comes from `../docs/verification.md`: verified means the Python result matches rspiro fixtures or an independent implementation written from the paper; single source means one source only; excluded means the set is not in the app.
 
-| group | equation | population | ages (years) | lower limit and z-score |
-|---|---|---|---|---|
-| recommended | GLI-2012 (Quanjer et al., ERJ 2012) | multi-ethnic, with an ethnicity choice | 3 to 95 | yes |
-| recommended | GLI-Global 2022 (Bowerman et al., AJRCCM 2023) | race-neutral | 3 to 95 | yes |
-| historical | NHANES III (Hankinson et al., AJRCCM 1999) | United States, with an ethnicity choice | 8 to 80 | yes |
-| historical | ECCS/Quanjer 1993 (Eur Respir J 1993) | adults of European descent | 18 to 70 | no |
-| regional | Kubota 2014, JRS (Respir Investig 2014) | Japanese adults | 17 to 95 | yes |
-| regional | Pereira 2007 (J Bras Pneumol 2007) | White Brazilian adults | 26 to 86 (men), 20 to 85 (women) | lower limit only |
+| equation | group | population | ages (years) | lower limit and z-score | status |
+|---|---|---|---|---|---|
+| GLI-2012 (Quanjer et al., ERJ 2012) | recommended | multi-ethnic, with an ethnicity choice | 3 to 95 | yes | verified |
+| GLI-Global 2022 (Bowerman et al., AJRCCM 2023) | recommended | race-neutral | 3 to 95 | yes | verified |
+| NHANES III (Hankinson et al., AJRCCM 1999) | historical | United States, with an ethnicity choice | 8 to 80 | yes | verified |
+| ECCS/Quanjer 1993 (Eur Respir J 1993) | historical | adults of European descent | 18 to 70 | no | verified |
+| Kubota 2014, JRS (Respir Investig 2014) | regional | Japanese adults | 17 to 95 (men), 17 to below 94 (women) | yes | verified |
+| Pereira 2007 (J Bras Pneumol 2007) | regional | White Brazilian adults | 26 to 86 (men), 20 to 85 (women) | lower limit only, no z-score | verified |
+| Jian 2017 (China) | not in the app | Chinese, 4 to 80 years | not applicable | not applicable | excluded |
+| Jo 2018 (Korea) | not in the app | Korean adults | not applicable | not applicable | excluded |
+
+Jian 2017 is excluded because 9 of 36 published predicted values differ from the implementation by more than the print rounding, and the lower limit of FVC in men cannot be traced to the paper. Jo 2018 is excluded because the printed lower limit of FEV1/FVC in women contradicts the paper's own figures and text. See `../docs/verification.md` for the checks.
 
 GLI-2012, GLI-Global 2022 and NHANES III are selected when the page opens. At least one equation stays selected. Each historical and regional set shows a short caveat. An equation without a z-score is shown as not classified, never as normal. The equation notes on the page give the citation, the population and the age range of each set.
 
@@ -44,6 +48,17 @@ The equations come from the `pyspiro` package (MIT licence), classes `GLI_2012`,
 - NHANES III, Pereira 2007 and ECCS 1993 express FEV1/FVC as a percentage, and NHANES III numbers its parameters differently. The wrappers convert them, so that every equation returns the same long-form table. The app always shows the ratio as a fraction.
 - pyspiro returns NA outside the domain of an equation. The wrapper turns that into an error message. The page shows the message for that equation and computes the others.
 - ECCS 1993: between 18 and 25 years the source enters an age of 25 years. The wrapper applies this age floor.
+
+## How to add an equation
+
+1. Check the equation against the published paper. Read the tables and the lower-limit rule. Do not take a package as the source: check its output against the paper.
+2. Add a wrapper in `quadrant/wrappers.py`. It validates the inputs, uses sex codes 1 (male) and 2 (female), and returns the same long-form table as the other wrappers. Keep fractions for FEV1/FVC. Raise a `ValueError` with a clear message outside the domain.
+3. Add the age and height ranges and any lookup tables to `quadrant/constants.py`.
+4. Add an `EquationSpec` to `_SPECS` in `quadrant/registry.py`: key, name, citation, population, age range, ethnicities, group, caveat and the adapter. Add the key to `DEFAULT_KEYS` only for a recommended set.
+5. Write a test that compares the wrapper with an independent implementation written from the paper (see `tests/independent/`). Add rspiro fixtures in `../tests/testthat/fixtures/` when rspiro has the equation.
+6. Add a row to the table in `../docs/verification.md` with the source, the check, the date, the result and the status. `tests/test_verification_log.py` fails when a registered key has no row.
+7. Add the equation to the table above.
+8. Run `uv run pytest`.
 
 ## Differences from the R app
 
@@ -57,6 +72,9 @@ The equations come from the `pyspiro` package (MIT licence), classes `GLI_2012`,
 - Colours, fonts and corner radius are set in `.streamlit/config.toml`. The typeface is Source Sans 3 (SIL OFL), served from `static/fonts/` (see the README there for version and checksums). The app makes no request to an external font host. The themes are a light theme (chart paper and ink blue) and a dark theme (night blue and brass). The only CSS is one rule that gives table numbers equal-width digits.
 - The page reads top down: the classification of each selected equation and whether they agree, then the z-score chart, then the comparison matrix (one table each for FEV1, FVC and FEV1/FVC, one row for each equation), then the equation notes. It uses native Streamlit elements: a sidebar for the inputs and the equation selector (`st.pills`), `st.badge` for the pattern, `st.tabs` and `st.table` for the matrix and `st.warning` for problems. In the matrix, a hyphen means that the equation publishes no value, and an asterisk marks a z-score below the lower limit of normal.
 - The comparison chart is an Altair chart (`quadrant/charts.py`) that follows the light and dark theme. Markers differ in colour and shape, bands show the severity levels, a dashed line marks the lower limit of normal, and a tooltip gives the observed, predicted and lower-limit values. A z-score beyond the axis sits just inside the edge, and its label and tooltip keep the real value.
+- Example inputs, the equation selection, the ethnicity choices and the pinned what-if values live in the Streamlit session only. The app writes none of them to disk. Closing the tab clears them.
+- The app holds no patient data. The example inputs are synthetic values for trying the app: normal adult, obstructive pattern, restrictive pattern (suggestive) and child.
+- The report is an HTML file with its own CSS, an embedded font and a static chart. It prints from the browser Print menu.
 - The app turns off Streamlit usage analytics (`gatherUsageStats = false`).
 - The exported report keeps its own HTML, CSS and static SVG chart (`quadrant/visuals.py`), because it must work as a file outside Streamlit.
 
