@@ -411,13 +411,10 @@ else:
     st.caption("Enter values to compute results.")
 
 with st.expander("Equation notes", icon=":material/menu_book:"):
+    # The population text states the age range, as in the report.
     for spec in specs:
-        low, high = spec.age_range
         st.markdown(spec.name)
-        st.caption(
-            f"{spec.citation}. {spec.population.rstrip('.')}. "
-            f"Age range: {low:g} to {high:g} years."
-        )
+        st.caption(f"{spec.citation}. {spec.population.rstrip('.')}.")
         if spec.caveat:
             st.caption(spec.caveat)
 

@@ -400,3 +400,15 @@ def test_the_report_has_no_pinned_values(monkeypatch):
     html = reports[-1]
     assert "Change in z" not in html and "pinned" not in html.lower()
     assert "2.80 L" in html and "3.20 L" not in html
+
+
+def test_the_equation_notes_state_the_age_range_once():
+    keys = list(EQUATIONS)
+    captions = [str(block.value) for block in _run(equations=keys).caption]
+    for key in keys:
+        spec = EQUATIONS[key]
+        note = f"{spec.citation}. {spec.population.rstrip('.')}."
+        assert note in captions
+        low, high = spec.age_range
+        assert note.count(f"{low:g} to {high:g}") == 1
+    assert not any("Age range:" in caption for caption in captions)
