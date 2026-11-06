@@ -158,3 +158,21 @@ def test_classification_summary_agree_differ_and_missing():
     assert text.startswith("The equations differ in classification.")
     assert "GLI-Global 2022: obstructive \u00b7 moderate" in text
     assert classification_summary({"gli_2012": _interp("normal"), "gli_2022": None, "nhanes3": None}) is None
+
+
+UNCLASSIFIED = {"pattern": None, "severity": None}
+
+
+def test_pattern_label_for_an_unclassified_result():
+    assert pattern_label(UNCLASSIFIED) == "Not classified (no published lower limit)"
+
+
+def test_badge_colour_is_gray_when_not_classified():
+    assert badge_colour(UNCLASSIFIED) == "gray"
+
+
+def test_unclassified_results_render_and_are_skipped_in_the_summary():
+    assert "Not classified" in render_pattern_badge(UNCLASSIFIED)
+    assert "Not classified" in render_interpretation(UNCLASSIFIED)
+    normal = {"pattern": "normal", "severity": None}
+    assert classification_summary({"gli_2012": normal, "gli_2022": UNCLASSIFIED}) is None

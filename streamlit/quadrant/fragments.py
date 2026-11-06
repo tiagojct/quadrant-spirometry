@@ -48,6 +48,8 @@ def input_problem(fev1, fvc) -> str | None:
 # Streamlit badge colour for each severity level.
 BADGE_COLOURS = {None: "green", "mild": "yellow", "moderate": "orange", "severe": "red"}
 
+NOT_CLASSIFIED_LABEL = "Not classified (no published lower limit)"
+
 
 def pattern_label(interpretation: dict) -> str:
     """Descriptive label, for example "Pattern consistent with obstructive · moderate".
@@ -57,6 +59,8 @@ def pattern_label(interpretation: dict) -> str:
     """
     pattern = interpretation["pattern"]
     severity = interpretation["severity"]
+    if pattern is None:
+        return NOT_CLASSIFIED_LABEL
     if "pattern" in pattern:
         text = f"Consistent with {pattern}"
     else:
@@ -66,6 +70,8 @@ def pattern_label(interpretation: dict) -> str:
 
 def badge_colour(interpretation: dict) -> str:
     """Streamlit badge colour that matches the severity level."""
+    if interpretation["pattern"] is None:
+        return "gray"
     return BADGE_COLOURS[interpretation["severity"]]
 
 
@@ -73,9 +79,12 @@ def render_pattern_badge(interpretation: dict | None) -> str:
     """Coloured pill with the ATS/ERS 2022 pattern and severity (report)."""
     if interpretation is None:
         return "<em>Enter values to classify.</em>"
-    background, foreground = BADGE_PALETTE.get(
-        interpretation["severity"] or "normal", ("#94a3b8", "#0f172a")
-    )
+    if interpretation["pattern"] is None:
+        background, foreground = ("#e2e8f0", "#334155")
+    else:
+        background, foreground = BADGE_PALETTE.get(
+            interpretation["severity"] or "normal", ("#94a3b8", "#0f172a")
+        )
     return (
         f'<div class="qd-badge" style="background:{background};color:{foreground};">'
         f"{escape(pattern_label(interpretation))}</div>"
@@ -86,6 +95,13 @@ def render_interpretation(interpretation: dict | None) -> str:
     """Pattern and severity lines for one reference family."""
     if interpretation is None:
         return "<em>Enter values to interpret.</em>"
+    if interpretation["pattern"] is None:
+        return (
+            '<div><p class="qd-line"><span class="qd-muted">Pattern: </span>'
+            "<span>Not classified</span></p>"
+            '<p class="qd-line qd-muted">This equation has no published '
+            "lower limit of normal.</p></div>"
+        )
     pattern_line = (
         '<p class="qd-line"><span class="qd-muted">Pattern: </span>'
         f'<span>{escape(interpretation["pattern"])}</span></p>'
@@ -216,19 +232,22 @@ def short_label(interpretation: dict) -> str:
     """Short classification such as "obstructive \u00b7 moderate" or "normal"."""
     severity = interpretation["severity"]
     pattern = interpretation["pattern"]
+    if pattern is None:
+        return "not classified"
     return pattern if severity is None else f"{pattern} \u00b7 {severity}"
 
 
 def classification_summary(interpretations: dict) -> str | None:
     """One sentence on whether the equations give the same classification.
 
-    Returns None when fewer than two equations have a result. When the
+    Equations without a classification are skipped. Returns None when
+    fewer than two equations have a result. When the
     equations differ, the sentence names each one.
     """
     available = {
         FAMILY_NAMES[key]: value
         for key, value in interpretations.items()
-        if value is not None
+        if value is not None and value["pattern"] is not None
     }
     if len(available) < 2:
         return None

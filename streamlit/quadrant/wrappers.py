@@ -115,6 +115,7 @@ def _long_table(
     observed: dict,
     family: str,
     ratio_scale: float = 1.0,
+    limits_required: bool = True,
 ) -> pd.DataFrame:
     """Evaluate one reference object for every parameter.
 
@@ -122,6 +123,10 @@ def _long_table(
     (sex, age, height) or (sex, age, height, ethnicity). pyspiro returns
     NA outside the domain of an equation. That becomes a ValueError here
     so that the operator sees the reason.
+
+    Some published equations have no lower limit. With
+    limits_required=False, NaN is allowed in lln and z_score only.
+    NaN in predicted or percent_predicted still raises.
     """
     rows = []
     for parameter in SPIROMETRY_PARAMS:
@@ -131,7 +136,10 @@ def _long_table(
         lln = reference.lln(*args)
         z_score = reference.zscore(*args)
         percent = reference.percent(*args)
-        if any(pd.isna(v) for v in (predicted, lln, z_score, percent)):
+        required = (predicted, percent)
+        if limits_required:
+            required = (predicted, lln, z_score, percent)
+        if any(pd.isna(v) for v in required):
             raise ValueError(
                 f"{family} has no reference value for these inputs. The "
                 "equation covers a limited range of age and height."

@@ -157,3 +157,35 @@ def test_gli_global_has_no_ethnicity_argument():
 
 def test_validate_skips_ethnicity_when_not_requested():
     validate_subject_inputs(age_years=40, height_cm=170, sex_code=1, fev1=3.0, fvc=4.0)
+
+
+def test_long_table_allows_nan_limits_only_when_not_required():
+    import pytest as _pytest
+    from quadrant.wrappers import _long_table
+
+    class Ref:
+        def __init__(self, predicted=1.0, percent=100.0):
+            self.p, self.c = predicted, percent
+
+        def lms(self, *a):
+            return (0, self.p, 0, 0)
+
+        def lln(self, *a):
+            return float("nan")
+
+        def zscore(self, *a):
+            return float("nan")
+
+        def percent(self, *a):
+            return self.c
+
+    args = ((1, 40, 170), {"FEV1": 1, "FVC": 2, "FEV1FVC": 3},
+            {"FEV1": 3.0, "FVC": 4.0, "FEV1FVC": 0.75}, "Test")
+    df = _long_table(Ref(), *args, limits_required=False)
+    assert df["lln"].isna().all() and df["z_score"].isna().all()
+    with _pytest.raises(ValueError):
+        _long_table(Ref(), *args)
+    with _pytest.raises(ValueError):
+        _long_table(Ref(predicted=float("nan")), *args, limits_required=False)
+    with _pytest.raises(ValueError):
+        _long_table(Ref(percent=float("nan")), *args, limits_required=False)

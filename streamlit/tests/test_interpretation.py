@@ -78,3 +78,29 @@ def test_interpret_spirometry_fails_on_a_malformed_table():
         interpret_spirometry(pd.DataFrame({"foo": [1]}))
     with pytest.raises(ValueError, match="FEV1FVC"):
         interpret_spirometry(pd.DataFrame({"parameter": ["FEV1", "FVC"], "z_score": [-1, -1]}))
+
+
+def _nan_table(z_values, lln=float("nan")):
+    return pd.DataFrame(
+        {
+            "parameter": ["FEV1", "FVC", "FEV1FVC"],
+            "observed": [3.0, 4.0, 0.75],
+            "predicted": [3.5, 4.5, 0.78],
+            "lln": [lln] * 3,
+            "z_score": z_values,
+            "percent_predicted": [86.0, 89.0, 96.0],
+        }
+    )
+
+
+def test_a_table_with_nan_limits_is_not_classified():
+    nan = float("nan")
+    result = interpret_spirometry(_nan_table([nan, nan, nan]))
+    assert result["pattern"] is None
+    assert result["severity"] is None
+    assert pd.isna(result["fev1_z"])
+
+
+def test_partial_nan_z_scores_still_raise():
+    with pytest.raises(ValueError, match="all present or all missing"):
+        interpret_spirometry(_nan_table([-1.0, float("nan"), 0.0]))

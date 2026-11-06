@@ -67,7 +67,9 @@ def interpret_spirometry(reference_df: pd.DataFrame) -> dict:
     """Interpret one reference family's long-form result table.
 
     Returns a dict with pattern, severity, fev1_z, fvc_z and fev1_fvc_z.
-    Severity is None when the pattern is normal.
+    Severity is None when the pattern is normal. When all three z-scores
+    are NaN (an equation without a lower limit), pattern and severity are
+    both None. A partly missing set raises ValueError.
     """
     missing = {"parameter", "z_score"} - set(reference_df.columns)
     if missing:
@@ -76,9 +78,21 @@ def interpret_spirometry(reference_df: pd.DataFrame) -> dict:
             + ", ".join(sorted(missing))
         )
     z = dict(zip(reference_df["parameter"], reference_df["z_score"]))
-    for parameter in ("FEV1", "FVC", "FEV1FVC"):
-        if parameter not in z or pd.isna(z[parameter]):
+    params = ("FEV1", "FVC", "FEV1FVC")
+    for parameter in params:
+        if parameter not in z:
             raise ValueError(f"reference_df is missing a z-score for {parameter}.")
+    n_missing = sum(bool(pd.isna(z[p])) for p in params)
+    if n_missing == len(params):
+        return {
+            "pattern": None,
+            "severity": None,
+            "fev1_z": float("nan"),
+            "fvc_z": float("nan"),
+            "fev1_fvc_z": float("nan"),
+        }
+    if n_missing:
+        raise ValueError("The z-scores must be all present or all missing.")
 
     pattern = classify_pattern(z["FEV1"], z["FVC"], z["FEV1FVC"])
     severity = None if pattern == "normal" else grade_severity(z["FEV1"])
