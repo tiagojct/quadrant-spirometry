@@ -13,6 +13,7 @@ from typing import Callable
 import pandas as pd
 
 from .constants import (
+    ECCS_AGE_RANGE_YEARS,
     GLI_AGE_RANGE_YEARS,
     GLI_ETHNICITY,
     JRS_AGE_RANGE_YEARS,
@@ -21,6 +22,7 @@ from .constants import (
     PEREIRA_AGE_RANGE_YEARS,
 )
 from .wrappers import (
+    compute_eccs_1993,
     compute_gli_2012,
     compute_gli_global_2022,
     compute_kubota_2014,
@@ -113,6 +115,16 @@ def _pereira_2007(subject: Subject, ethnicity_code: int | None) -> pd.DataFrame:
     )
 
 
+def _eccs_1993(subject: Subject, ethnicity_code: int | None) -> pd.DataFrame:
+    return compute_eccs_1993(
+        subject.age_years,
+        subject.height_cm,
+        subject.sex_code,
+        subject.fev1,
+        subject.fvc,
+    )
+
+
 _SPECS = (
     EquationSpec(
         key="gli_2012",
@@ -191,6 +203,25 @@ _SPECS = (
             "classified."
         ),
         compute=_pereira_2007,
+    ),
+    EquationSpec(
+        key="eccs_1993",
+        name="ECCS/Quanjer 1993",
+        citation="Quanjer et al., Eur Respir J 1993",
+        population=(
+            "Adults of European descent, 18 to 70 years (height: men 155 to "
+            "195 cm, women 145 to 180 cm)"
+        ),
+        age_range=ECCS_AGE_RANGE_YEARS,
+        ethnicities=None,
+        has_lower_limit=False,
+        group="historical",
+        caveat=(
+            "Predicted values and percent of predicted only. No lower limit or "
+            "z-score, so the result is not classified. Historical set, kept for "
+            "comparison."
+        ),
+        compute=_eccs_1993,
     ),
 )
 

@@ -1,11 +1,14 @@
 """Wrapper tests: contract, rspiro fixtures and validation."""
 
+import math
+
 import pandas as pd
 import pytest
 
 from quadrant.constants import SPIROMETRY_PARAMS
 from quadrant.wrappers import (
     TABLE_COLUMNS,
+    compute_eccs_1993,
     compute_gli_2012,
     compute_gli_global_2022,
     compute_kubota_2014,
@@ -14,6 +17,7 @@ from quadrant.wrappers import (
     validate_subject_inputs,
 )
 from tests.conftest import read_fixture
+from tests.independent import eccs_1993 as eccs_source
 from tests.independent import pereira_2007 as pereira_paper
 
 # Contract from CLAUDE.md: predicted, LLN and z-score within 0.01 of the
@@ -394,3 +398,150 @@ def test_pereira_does_not_use_weight():
         want_pred, want_lln = _pereira_expected(1, 40, 170, row["parameter"])
         assert row["predicted"] == pytest.approx(want_pred, abs=PEREIRA_TOLERANCE)
         assert row["lln"] == pytest.approx(want_lln, abs=PEREIRA_TOLERANCE)
+
+
+# ECCS/ERS 1993 (Quanjer): wrapper against the independent module written
+# from Table 6 of the source. Predicted value and percent of predicted only.
+# Heights stay inside the source range: men 155 to 195 cm, women 145 to
+# 180 cm.
+ECCS_TOLERANCE = 0.005
+ECCS_SEX = {1: "male", 2: "female"}
+ECCS_HEIGHTS = {1: (155, 170, 190, 195), 2: (145, 150, 165, 180)}
+ECCS_CASES = [
+    (sex_code, age, height)
+    for sex_code in (1, 2)
+    for age in (18, 25, 40, 70)
+    for height in ECCS_HEIGHTS[sex_code]
+]
+
+
+def _eccs_expected(sex_code, age, height, parameter):
+    scale = 100.0 if parameter == "FEV1FVC" else 1.0
+    return eccs_source.predicted(ECCS_SEX[sex_code], age, height, parameter) / scale
+
+
+@pytest.mark.parametrize("case", ECCS_CASES)
+def test_eccs_matches_the_published_table(case):
+    sex_code, age, height = case
+    fev1, fvc = 3.0, 4.0
+    table = compute_eccs_1993(age, height, sex_code, fev1, fvc)
+    assert list(table.columns) == list(TABLE_COLUMNS)
+    assert tuple(table["parameter"]) == SPIROMETRY_PARAMS
+    observed = {"FEV1": fev1, "FVC": fvc, "FEV1FVC": fev1 / fvc}
+    for _, row in table.iterrows():
+        parameter = row["parameter"]
+        want = _eccs_expected(sex_code, age, height, parameter)
+        assert row["observed"] == pytest.approx(observed[parameter])
+        assert row["predicted"] == pytest.approx(want, abs=ECCS_TOLERANCE)
+        assert row["percent_predicted"] == pytest.approx(
+            observed[parameter] / want * 100, abs=TOLERANCE_PERCENT
+        )
+
+
+def test_eccs_has_no_lower_limit():
+    table = compute_eccs_1993(40, 170, 1, 3.0, 4.0)
+    assert table["lln"].isna().all()
+    assert table["z_score"].isna().all()
+    assert table["predicted"].map(math.isfinite).all()
+    assert table["percent_predicted"].map(math.isfinite).all()
+
+
+def test_eccs_age_floor_below_25():
+    # Table 6 footnote and section 5.1: between 18 and 25 years an age of
+    # 25 years is entered into the equations. The source makes no exception
+    # by sex or parameter, so the floor holds for all three parameters and
+    # both sexes. Above 25 the age term applies.
+    for sex_code, height in ((1, 175), (2, 165)):
+        at_25 = compute_eccs_1993(25, height, sex_code, 3.0, 4.0)
+        for age in (18, 21.5, 24.9):
+            below = compute_eccs_1993(age, height, sex_code, 3.0, 4.0)
+            pd.testing.assert_series_equal(below["predicted"], at_25["predicted"])
+        at_26 = compute_eccs_1993(26, height, sex_code, 3.0, 4.0)
+        assert (at_26["predicted"] < at_25["predicted"]).all()
+
+
+ECCS_AGE_MESSAGE = "the ECCS 1993 equations cover 18 to 70 years"
+ECCS_MALE_HEIGHT_MESSAGE = "for men the ECCS 1993 equations cover 155 to 195 cm"
+ECCS_FEMALE_HEIGHT_MESSAGE = "for women the ECCS 1993 equations cover 145 to 180 cm"
+
+
+def test_eccs_age_range():
+    for sex_code, height in ((1, 175), (2, 165)):
+        for age in (17, 17.9, 70.1, 71):
+            with pytest.raises(ValueError, match=ECCS_AGE_MESSAGE):
+                compute_eccs_1993(age, height, sex_code, 3.0, 4.0)
+        for age in (18, 70):
+            assert len(compute_eccs_1993(age, height, sex_code, 3.0, 4.0)) == 3
+
+
+def test_eccs_height_range():
+    for height in (154.9, 195.1):
+        with pytest.raises(ValueError, match=ECCS_MALE_HEIGHT_MESSAGE):
+            compute_eccs_1993(40, height, 1, 3.0, 4.0)
+    for height in (144.9, 180.1):
+        with pytest.raises(ValueError, match=ECCS_FEMALE_HEIGHT_MESSAGE):
+            compute_eccs_1993(40, height, 2, 2.5, 3.0)
+    for height in (155, 195):
+        assert len(compute_eccs_1993(40, height, 1, 3.0, 4.0)) == 3
+    for height in (145, 180):
+        assert len(compute_eccs_1993(40, height, 2, 2.5, 3.0)) == 3
+
+
+def test_eccs_ratio_is_a_fraction():
+    table = compute_eccs_1993(40, 170, 1, 3.0, 4.0)
+    ratio = table[table["parameter"] == "FEV1FVC"].iloc[0]
+    assert ratio["observed"] == pytest.approx(0.75)
+    assert 0.7 < ratio["predicted"] < 0.9
+    assert ratio["percent_predicted"] == pytest.approx(
+        0.75 / ratio["predicted"] * 100, abs=TOLERANCE_PERCENT
+    )
+
+
+def test_eccs_sex_mapping():
+    male = compute_eccs_1993(40, 170, 1, 3.0, 4.0)
+    female = compute_eccs_1993(40, 170, 2, 3.0, 4.0)
+    assert male["predicted"].iloc[0] > female["predicted"].iloc[0]
+    assert female["predicted"].iloc[0] == pytest.approx(
+        _eccs_expected(2, 40, 170, "FEV1"), abs=ECCS_TOLERANCE
+    )
+
+
+def test_eccs_result_is_not_classified():
+    from quadrant.fragments import NOT_CLASSIFIED_LABEL, pattern_label
+    from quadrant.interpretation import interpret_spirometry
+
+    result = interpret_spirometry(compute_eccs_1993(40, 170, 1, 3.0, 4.0))
+    assert result["pattern"] is None
+    assert result["severity"] is None
+    assert pattern_label(result) == NOT_CLASSIFIED_LABEL
+    assert NOT_CLASSIFIED_LABEL == "Not classified (no z-score for this equation)"
+
+
+def test_nan_z_scores_never_render_as_nan_text():
+    from quadrant.fragments import render_interpretation, render_pattern_badge
+    from quadrant.interpretation import interpret_spirometry
+
+    result = interpret_spirometry(compute_eccs_1993(40, 170, 2, 2.5, 3.2))
+    for html in (render_interpretation(result), render_pattern_badge(result)):
+        assert "nan" not in html.lower()
+
+
+def test_regression_table_allows_a_missing_lln_only_when_not_required():
+    from quadrant.wrappers import _ECCS_1993, _ECCS_PARAM_CODES, _regression_table
+
+    args = (
+        _ECCS_1993,
+        (1, 40, 170),
+        _ECCS_PARAM_CODES,
+        {"FEV1": 3.0, "FVC": 4.0, "FEV1FVC": 0.75},
+        "ECCS 1993",
+    )
+    with pytest.raises(ValueError, match="ECCS 1993 has no reference value"):
+        _regression_table(*args, ratio_scale=100.0)
+    table = _regression_table(*args, ratio_scale=100.0, limits_required=False)
+    assert table["lln"].isna().all()
+    with pytest.raises(ValueError, match="ECCS 1993 has no reference value"):
+        _regression_table(
+            _ECCS_1993, (1, 40, 150), *args[2:], ratio_scale=100.0,
+            limits_required=False,
+        )

@@ -5,6 +5,7 @@ import pytest
 
 from quadrant.registry import DEFAULT_KEYS, EQUATIONS, Subject, compute_equation
 from quadrant.wrappers import (
+    compute_eccs_1993,
     compute_gli_2012,
     compute_kubota_2014,
     compute_pereira_2007,
@@ -82,3 +83,28 @@ def test_compute_equation_pereira_matches_the_direct_wrapper():
     subject = Subject(40, 165, 2, 2.5, 3.2)
     got = compute_equation("pereira_2007", subject)
     pd.testing.assert_frame_equal(got, compute_pereira_2007(40, 165, 2, 2.5, 3.2))
+
+
+def test_eccs_1993_is_registered_as_a_historical_set():
+    spec = EQUATIONS["eccs_1993"]
+    assert spec.name == "ECCS/Quanjer 1993"
+    assert spec.citation == "Quanjer et al., Eur Respir J 1993"
+    assert spec.group == "historical"
+    assert spec.ethnicities is None
+    assert spec.has_lower_limit is False
+    assert spec.age_range == (18, 70)
+    assert spec.population.startswith("Adults of European descent, 18 to 70 years")
+    assert "155 to 195 cm" in spec.population
+    assert "145 to 180 cm" in spec.population
+    assert spec.caveat == (
+        "Predicted values and percent of predicted only. No lower limit or "
+        "z-score, so the result is not classified. Historical set, kept for "
+        "comparison."
+    )
+    assert "eccs_1993" not in DEFAULT_KEYS
+
+
+def test_compute_equation_eccs_matches_the_direct_wrapper():
+    subject = Subject(40, 165, 2, 2.5, 3.2)
+    got = compute_equation("eccs_1993", subject)
+    pd.testing.assert_frame_equal(got, compute_eccs_1993(40, 165, 2, 2.5, 3.2))

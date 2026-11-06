@@ -56,6 +56,17 @@ PEREIRA_FEMALE_AGE_RANGE_YEARS = (20, 85)
 PEREIRA_MALE_HEIGHT_RANGE_CM = (152, 192)
 PEREIRA_FEMALE_HEIGHT_RANGE_CM = (137, 182)
 
+# ECCS/ERS 1993 summary equations for adults of European descent
+# (Quanjer et al., Eur Respir J 1993;6 Suppl 16:5-40,
+# doi:10.1183/09041950.005s1693). Table 6 and section 5.1: ages 18 to 70
+# years; between 18 and 25 years an age of 25 years is entered into the
+# equations; height range of the source data 1.55 to 1.95 m in men and
+# 1.45 to 1.80 m in women.
+ECCS_AGE_RANGE_YEARS = (18, 70)
+ECCS_AGE_FLOOR_YEARS = 25
+ECCS_MALE_HEIGHT_RANGE_CM = (155, 195)
+ECCS_FEMALE_HEIGHT_RANGE_CM = (145, 180)
+
 # Plausible physiological age range, used when a wrapper passes no
 # equation-specific range.
 PLAUSIBLE_AGE_RANGE_YEARS = (0, 120)

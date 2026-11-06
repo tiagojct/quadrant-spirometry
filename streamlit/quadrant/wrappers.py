@@ -15,9 +15,20 @@ from __future__ import annotations
 import numbers
 
 import pandas as pd
-from pyspiro import BOWERMAN_2022, GLI_2012, HANKINSON_1999, KUBOTA_2014, PEREIRA_2007
+from pyspiro import (
+    BOWERMAN_2022,
+    ECCS_1993,
+    GLI_2012,
+    HANKINSON_1999,
+    KUBOTA_2014,
+    PEREIRA_2007,
+)
 
 from .constants import (
+    ECCS_AGE_FLOOR_YEARS,
+    ECCS_AGE_RANGE_YEARS,
+    ECCS_FEMALE_HEIGHT_RANGE_CM,
+    ECCS_MALE_HEIGHT_RANGE_CM,
     GLI_AGE_RANGE_YEARS,
     GLI_ETHNICITY,
     HEIGHT_RANGE_CM,
@@ -49,6 +60,7 @@ _NHANES3_PARAM_CODES = {"FEV1": 2, "FVC": 1, "FEV1FVC": 3}
 _JRS_PARAM_CODES = {"FEV1": 1, "FVC": 2, "FEV1FVC": 4}
 # Pereira 2007: the height and age models only (no _WT parameters).
 _PEREIRA_PARAM_CODES = {"FEV1": 3, "FVC": 1, "FEV1FVC": 7}
+_ECCS_PARAM_CODES = {"FEV1": 2, "FVC": 1, "FEV1FVC": 3}
 
 # pyspiro codes sex as 1 = male, 0 = female. This project uses 1 and 2.
 _PYSPIRO_SEX = {1: 1, 2: 0}
@@ -57,14 +69,16 @@ _PYSPIRO_SEX = {1: 1, 2: 0}
 # the ratio in and out so that every family returns the same units.
 _NHANES3_RATIO_SCALE = 100.0
 
-# Pereira 2007 also gives FEV1/FVC in percent.
+# Pereira 2007 and ECCS 1993 also give FEV1/FVC in percent.
 _PEREIRA_RATIO_SCALE = 100.0
+_ECCS_RATIO_SCALE = 100.0
 
 _GLI_2012 = GLI_2012()
 _GLI_2022 = BOWERMAN_2022()
 _NHANES3 = HANKINSON_1999()
 _JRS_2014 = KUBOTA_2014()
 _PEREIRA_2007 = PEREIRA_2007()
+_ECCS_1993 = ECCS_1993()
 
 
 def validate_subject_inputs(
@@ -178,6 +192,7 @@ def _regression_table(
     observed: dict,
     family: str,
     ratio_scale: float = 1.0,
+    limits_required: bool = True,
 ) -> pd.DataFrame:
     """Long-form table for a pyspiro regression equation without a z-score.
 
@@ -191,6 +206,11 @@ def _regression_table(
     implementation of the paper. z_score is NaN: the paper gives the lower
     limit as a percentile of the residuals and no residual standard
     deviation.
+
+    Some equations publish the predicted value only (pyspiro
+    PredictedValueReference, for example ECCS_1993). With
+    limits_required=False, lln may be missing and becomes NaN. NaN in
+    predicted or percent_predicted still raises.
     """
     sex, age, height = lead_args
     rows = []
@@ -202,9 +222,12 @@ def _regression_table(
             sex, age, height, ethnicity=None, weight=None, parameter=code
         )
         percent = reference.percent(sex, age, height, parameter=code, value=value)
-        if result is None or any(
-            v is None or pd.isna(v) for v in (result.pred, result.lln, percent)
-        ):
+        required = ()
+        if result is not None:
+            required = (result.pred, percent)
+            if limits_required:
+                required = (result.pred, result.lln, percent)
+        if result is None or any(v is None or pd.isna(v) for v in required):
             raise ValueError(
                 f"{family} has no reference value for these inputs. The "
                 "equation covers a limited range of age and height."
@@ -214,7 +237,11 @@ def _regression_table(
                 "parameter": parameter,
                 "observed": float(observed[parameter]),
                 "predicted": float(result.pred) / scale,
-                "lln": float(result.lln) / scale,
+                "lln": (
+                    float("nan")
+                    if result.lln is None or pd.isna(result.lln)
+                    else float(result.lln) / scale
+                ),
                 "z_score": float("nan"),
                 "percent_predicted": float(percent),
             }
@@ -369,4 +396,53 @@ def compute_pereira_2007(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFr
         _observed(fev1, fvc),
         "Pereira 2007",
         ratio_scale=_PEREIRA_RATIO_SCALE,
+    )
+
+
+def compute_eccs_1993(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFrame:
+    """ECCS/ERS 1993 (Quanjer) predicted values for one adult.
+
+    Table 6 of the source gives the predicted mean and the residual
+    standard deviation. This wrapper returns the predicted value and the
+    percent of predicted only: lln and z_score are NaN. Ages 18 to 70
+    years; heights 155 to 195 cm for men and 145 to 180 cm for women.
+
+    Between 18 and 25 years the source enters an age of 25 years into
+    every equation, for both sexes. pyspiro 1.0.0 applies this floor to
+    FVC, FEV1 and FEV1/FVC for women only, so the wrapper passes the
+    floored age to pyspiro. The tests compare the result with an
+    independent implementation of Table 6.
+    """
+    # Plausible range first (types, sex code, values). The equation ranges
+    # below are narrower and give a message that names the equation.
+    validate_subject_inputs(
+        age_years=age_years,
+        height_cm=height_cm,
+        sex_code=sex_code,
+        fev1=fev1,
+        fvc=fvc,
+    )
+    ages = ECCS_AGE_RANGE_YEARS
+    if not ages[0] <= age_years <= ages[1]:
+        raise ValueError(
+            f"the ECCS 1993 equations cover {ages[0]} to {ages[1]} years."
+        )
+    if sex_code == SEX_CODES["Male"]:
+        label, heights = "men", ECCS_MALE_HEIGHT_RANGE_CM
+    else:
+        label, heights = "women", ECCS_FEMALE_HEIGHT_RANGE_CM
+    if not heights[0] <= height_cm <= heights[1]:
+        raise ValueError(
+            f"for {label} the ECCS 1993 equations cover {heights[0]} to "
+            f"{heights[1]} cm."
+        )
+    equation_age = max(age_years, ECCS_AGE_FLOOR_YEARS)
+    return _regression_table(
+        _ECCS_1993,
+        (_PYSPIRO_SEX[sex_code], equation_age, height_cm),
+        _ECCS_PARAM_CODES,
+        _observed(fev1, fvc),
+        "ECCS 1993",
+        ratio_scale=_ECCS_RATIO_SCALE,
+        limits_required=False,
     )
