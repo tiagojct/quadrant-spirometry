@@ -439,3 +439,12 @@ def test_the_equation_notes_state_the_age_range_once():
         low, high = spec.age_range
         assert note.count(f"{low:g} to {high:g}") == 1
     assert not any("Age range:" in caption for caption in captions)
+
+
+def test_no_button_uses_the_primary_type():
+    # Streamlit puts white text on a primary button. On the dark-theme
+    # brass that is under 4.5:1, so every button is secondary.
+    at = _run()
+    assert at.get("download_button")
+    for block in list(at.button) + list(at.get("download_button")):
+        assert block.proto.type != "primary", block.proto.label

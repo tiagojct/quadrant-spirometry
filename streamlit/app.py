@@ -294,7 +294,9 @@ with st.sidebar:
         file_name=f"quadrant-report-{datetime.now():%Y%m%d-%H%M%S}.html",
         mime="text/html",
         icon=":material/download:",
-        type="primary",
+        # Secondary: Streamlit sets white text on a primary button, and
+        # white on the dark-theme brass is under 4.5:1.
+        type="secondary",
         disabled=not inputs_ready,
         width="stretch",
     )
