@@ -7,6 +7,8 @@ from streamlit.testing.v1 import AppTest
 from quadrant.charts import LLN_NOTE
 from quadrant.registry import EQUATIONS
 
+GUARD_NOTE = "At least one equation must stay selected."
+
 APP = str(Path(__file__).resolve().parents[1] / "app.py")
 
 GROUPS = ("recommended", "historical", "regional")
@@ -195,3 +197,26 @@ def test_an_equation_outside_its_range_is_not_called_no_z_score():
 def test_an_equation_with_no_z_score_is_still_named_under_the_chart():
     at = _run(equations=["gli_2012", "eccs_1993"])
     assert "Not plotted, no z-score: ECCS/Quanjer 1993" in [str(c.value) for c in at.caption]
+
+
+def test_the_guard_note_goes_away_after_an_unrelated_change():
+    at = _run(equations=["gli_2012"])
+    at.button_group(key="equations_recommended").set_value([])
+    at.run()
+    assert GUARD_NOTE in [str(c.value) for c in at.caption]
+    at.number_input(key="age_years").set_value(45.0)
+    at.run()
+    assert not at.exception
+    assert GUARD_NOTE not in [str(c.value) for c in at.caption]
+
+
+def test_the_ethnicity_choice_survives_deselecting_the_equation():
+    at = _run(ethnicity_gli_2012="African-American")
+    assert at.selectbox(key="ethnicity_gli_2012").value == "African-American"
+    at.button_group(key="equations_recommended").set_value(["gli_2022"])
+    at.run()
+    assert "ethnicity_gli_2012" not in {s.key for s in at.selectbox}
+    at.button_group(key="equations_recommended").set_value(["gli_2012", "gli_2022"])
+    at.run()
+    assert not at.exception
+    assert at.selectbox(key="ethnicity_gli_2012").value == "African-American"

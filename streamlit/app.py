@@ -78,9 +78,12 @@ def selected_keys() -> list[str]:
 
 
 def keep_one_selected() -> None:
-    """Pills callback: put the previous choice back when none is left."""
+    """Pills callback: put the previous choice back when none is left.
+
+    It sets a one-run flag, so the note shows only on the run that follows
+    the callback.
+    """
     if selected_keys():
-        st.session_state["selection_guard"] = False
         return
     previous = st.session_state.get("previous_selection") or list(DEFAULT_KEYS)
     for group, _ in GROUPS:
@@ -97,6 +100,8 @@ for _group, _ in GROUPS:
         group_key(_group),
         [key for key in DEFAULT_KEYS if EQUATIONS[key].group == _group],
     )
+# The guard flag lives for one run only: an unrelated change clears it.
+show_guard_note = st.session_state.pop("selection_guard", False)
 selection = selected_keys() or list(DEFAULT_KEYS)
 st.session_state["previous_selection"] = selection
 specs = [EQUATIONS[key] for key in selection]
@@ -122,14 +127,20 @@ with st.sidebar:
         key="sex", width="stretch",
     )
     # One ethnicity selector for each selected equation that uses one.
-    ethnicity_labels = {
-        spec.key: st.selectbox(
-            f"Ethnicity ({spec.name})", list(spec.ethnicities),
-            key=f"ethnicity_{spec.key}",
+    # Streamlit drops the value of a widget that is not drawn, so the choice
+    # is also kept under a second key and put back when the equation is
+    # selected again.
+    ethnicity_labels = {}
+    for spec in specs:
+        if not spec.ethnicities:
+            continue
+        widget_key, kept_key = f"ethnicity_{spec.key}", f"kept_ethnicity_{spec.key}"
+        if widget_key not in st.session_state and kept_key in st.session_state:
+            st.session_state[widget_key] = st.session_state[kept_key]
+        ethnicity_labels[spec.key] = st.selectbox(
+            f"Ethnicity ({spec.name})", list(spec.ethnicities), key=widget_key,
         )
-        for spec in specs
-        if spec.ethnicities
-    }
+        st.session_state[kept_key] = ethnicity_labels[spec.key]
 
     st.subheader("Spirometry", icon=":material/air:")
     fev1_col, fvc_col = st.columns(2)
@@ -154,7 +165,7 @@ with st.sidebar:
             key=group_key(_group),
             on_change=keep_one_selected,
         )
-    if st.session_state.get("selection_guard"):
+    if show_guard_note:
         st.caption(GUARD_NOTE)
 
 problem = input_problem(fev1, fvc)
@@ -232,11 +243,13 @@ if problem:
 
 # 1. The answer first: what each equation says, and whether they agree.
 st.subheader("Classification")
-with st.container(border=True):
+# Rows are further apart than the name and the badge inside a row, so on a
+# phone, where the columns stack, each name still reads with its badge.
+with st.container(border=True, gap="medium"):
     for spec in specs:
-        name_col, result_col = st.columns([1, 3], vertical_alignment="top")
+        name_col, result_col = st.columns([1, 3], gap="xsmall", vertical_alignment="top")
         name_col.markdown(spec.name)
-        with result_col:
+        with result_col.container(gap="xsmall"):
             if spec.key in messages:
                 st.warning(
                     messages[spec.key], title=NOT_AVAILABLE_TITLE,
