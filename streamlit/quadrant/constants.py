@@ -38,6 +38,11 @@ GLI_AGE_RANGE_YEARS = (3, 95)
 # Age range in years of the NHANES III reference population.
 NHANES3_AGE_RANGE_YEARS = (8, 80)
 
+# NHANES III change point in years (Hankinson et al. 1999, Tables 4 and 5
+# and journal page 184): the younger equations apply below this age.
+NHANES3_MALE_CHANGE_POINT_YEARS = 20
+NHANES3_FEMALE_CHANGE_POINT_YEARS = 18
+
 # Age range in years of the JRS 2014 equations (Kubota et al., Respir
 # Investig 2014, doi:10.1016/j.resinv.2014.03.003).
 JRS_AGE_RANGE_YEARS = (17, 95)

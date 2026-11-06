@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import numbers
 
+import numpy
 import pandas as pd
 from pyspiro import (
     BOWERMAN_2022,
@@ -41,6 +42,8 @@ from .constants import (
     JRS_FEMALE_MAX_AGE_YEARS,
     NHANES3_AGE_RANGE_YEARS,
     NHANES3_ETHNICITY,
+    NHANES3_FEMALE_CHANGE_POINT_YEARS,
+    NHANES3_MALE_CHANGE_POINT_YEARS,
     PEREIRA_FEMALE_AGE_RANGE_YEARS,
     PEREIRA_FEMALE_HEIGHT_RANGE_CM,
     PEREIRA_MALE_AGE_RANGE_YEARS,
@@ -78,9 +81,34 @@ _NHANES3_RATIO_SCALE = 100.0
 _PEREIRA_RATIO_SCALE = 100.0
 _ECCS_RATIO_SCALE = 100.0
 
+
+class _Hankinson1999PaperChangePoint(HANKINSON_1999):
+    """HANKINSON_1999 with the change point of the paper.
+
+    Hankinson et al. 1999 (Tables 4 and 5, journal page 184) use the
+    younger equations below 20 years for men and below 18 years for women.
+    pyspiro 1.0.0 uses age <= 19 and age <= 17, so a fractional age just
+    below the change point (a man of 19.5 years) gets the older equation.
+    This override changes only the age group. The coefficients stay those
+    of pyspiro. _age_group is private (pyspiro 1.0.0, pinned to >=1.0,<1.1
+    in pyproject.toml); a test fails if pyspiro changes it.
+    """
+
+    def _age_group(self, sex: int, age):
+        """'child' or 'adult'; age may be a scalar or an array."""
+        limit = (
+            NHANES3_MALE_CHANGE_POINT_YEARS
+            if sex == self.Sex.MALE.value
+            else NHANES3_FEMALE_CHANGE_POINT_YEARS
+        )
+        if isinstance(age, numpy.ndarray):
+            return numpy.where(age < limit, "child", "adult")
+        return "child" if age < limit else "adult"
+
+
 _GLI_2012 = GLI_2012()
 _GLI_2022 = BOWERMAN_2022()
-_NHANES3 = HANKINSON_1999()
+_NHANES3 = _Hankinson1999PaperChangePoint()
 _JRS_2014 = KUBOTA_2014()
 _PEREIRA_2007 = PEREIRA_2007()
 _ECCS_1993 = ECCS_1993()
@@ -310,11 +338,12 @@ def compute_nhanes3(
     """NHANES III reference values for a single subject.
 
     The paper changes from the younger to the older equations at 20 years
-    for men and 18 years for women. pyspiro 1.0.0 uses the younger
-    equations up to age 19 for men and 17 for women, so a fractional age
-    just below the change point (for example a man of 19.5 years) gets the
-    older equation. rspiro changes at 20 years for both sexes. See
-    docs/verification.md, NHANES III notes.
+    for men and 18 years for women. The wrapper follows the paper through
+    _Hankinson1999PaperChangePoint, also for fractional ages (pyspiro 1.0.0
+    alone gives a man of 19.5 years the older equation). rspiro changes at
+    20 years for both sexes, so for women aged 18 to below 20 years rspiro
+    and the R app differ from this wrapper. See docs/verification.md,
+    NHANES III notes.
     """
     validate_subject_inputs(
         age_years=age_years,

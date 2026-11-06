@@ -160,32 +160,23 @@ def test_nhanes3_height_outside_the_sampled_range_gives_a_message():
 
 # NHANES III change point. The paper (Hankinson 1999, Tables 4 and 5 and
 # journal page 184) uses the younger equations below 20 years for men and
-# below 18 years for women. rspiro uses age < 20 for both sexes. pyspiro
-# 1.0.0 uses age <= 19 for men and age <= 17 for women, so it follows the
-# paper for whole-year ages but not for fractional ages just below the
-# change point. See docs/verification.md, NHANES III notes.
+# below 18 years for women. The wrapper follows the paper through
+# _Hankinson1999PaperChangePoint. rspiro uses age < 20 for both sexes, so it
+# departs from the paper for women aged 18 to below 20 years. pyspiro 1.0.0
+# alone uses age <= 19 for men and age <= 17 for women. See
+# docs/verification.md, NHANES III notes.
 _AGE_SPLIT = "nhanes3_age_split_cases.csv"
 _SEX = {1: "male", 2: "female"}
 
 
-def _pyspiro_group(sex, age):
-    limit = 19 if sex == "male" else 17
-    return "younger" if age <= limit else "older"
-
-
-def _rspiro_group(age):
-    return "younger" if age < 20 else "older"
-
-
 def _split_case(rows):
     first = rows[0]
-    sex = _SEX[int(first["sex_code"])]
-    age = float(first["age_years"])
-    return sex, age
+    return _SEX[int(first["sex_code"])], float(first["age_years"])
 
 
-def _age_split_cases(selector):
-    return [rows for rows in _cases(_AGE_SPLIT) if selector(*_split_case(rows))]
+def _rspiro_departs_from_the_paper(sex, age):
+    # rspiro uses the younger equation up to 20 years for women too.
+    return sex == "female" and 18 <= age < 20
 
 
 def test_nhanes3_age_split_fixture_covers_both_sexes_ethnicities_and_ages():
@@ -201,41 +192,40 @@ def test_nhanes3_age_split_fixture_covers_both_sexes_ethnicities_and_ages():
                 assert (sex, eth, age) in keys
 
 
-@pytest.mark.parametrize(
-    "rows",
-    _age_split_cases(
-        lambda sex, age: indep_nhanes3.age_group(sex, age)
-        == _rspiro_group(age)
-        == _pyspiro_group(sex, age)
-    ),
-)
-def test_nhanes3_age_split_matches_rspiro_where_all_sources_agree(rows):
-    _check_case(compute_nhanes3(**_args(rows, True)), rows)
+@pytest.mark.parametrize("sex_code", [1, 2])
+@pytest.mark.parametrize("age", [8, 17, 17.5, 18, 19, 19.5, 20])
+def test_nhanes3_uses_the_equation_of_the_paper_around_the_change_point(sex_code, age):
+    # Caucasian FEV1 and FVC against the independent module written from
+    # Tables 4 and 5. A man of 19.5 years and a woman of 17.5 years get the
+    # younger equation; a woman of 18 or 19 years gets the older one.
+    sex = _SEX[sex_code]
+    height = 128 if age == 8 else (172 if sex == "male" else 165)
+    table = compute_nhanes3(age, height, sex_code, 1, 1.5, 1.8).set_index("parameter")
+    group = indep_nhanes3.age_group(sex, age)
+    for parameter in ("FEV1", "FVC"):
+        pred, lln = indep_nhanes3.predicted_and_lln(sex, age, height, parameter, group)
+        assert table.loc[parameter, "predicted"] == pytest.approx(pred, abs=1e-6)
+        assert table.loc[parameter, "lln"] == pytest.approx(lln, abs=1e-6)
 
 
 @pytest.mark.parametrize("rows", _cases(_AGE_SPLIT))
-def test_nhanes3_ratio_has_no_age_group_and_matches_rspiro_at_every_age(rows):
+def test_nhanes3_age_split_matches_rspiro_except_where_rspiro_departs_from_the_paper(rows):
+    sex, age = _split_case(rows)
     table = compute_nhanes3(**_args(rows, True))
+    if not _rspiro_departs_from_the_paper(sex, age):
+        _check_case(table, rows)
+        return
+    # Women aged 18 to below 20 years: the wrapper uses the older equation
+    # of the paper, rspiro the younger one. The ratio has no age group and
+    # still matches. At 18 years the two equations meet, so the values
+    # agree; at 19 and 19.5 years FEV1 and FVC differ by 0.05 to 0.14 L.
     _check_case(table.iloc[[2]], [rows[2]])
-
-
-@pytest.mark.parametrize("age", [19, 19.5])
-def test_nhanes3_women_aged_18_to_19_use_the_older_equation_as_the_paper_says(age):
-    # The paper changes equations at 18 years for women; rspiro uses the
-    # younger equation up to 20 years. The wrapper follows the paper here.
-    table = compute_nhanes3(age, 165, 2, 1, 3.0, 3.5).set_index("parameter")
-    fixture = {
-        r["parameter"]: r
-        for r in next(
-            rows for rows in _cases(_AGE_SPLIT)
-            if _split_case(rows) == ("female", age) and rows[0]["ethnicity_code"] == "1"
-        )
-    }
-    for parameter in ("FEV1", "FVC"):
-        pred, lln = indep_nhanes3.predicted_and_lln("female", age, 165, parameter, "older")
-        assert table.loc[parameter, "predicted"] == pytest.approx(pred, abs=TOLERANCE)
-        assert table.loc[parameter, "lln"] == pytest.approx(lln, abs=TOLERANCE)
-        assert abs(table.loc[parameter, "predicted"] - float(fixture[parameter]["predicted"])) > 0.03
+    for (_, got), want in zip(table.iloc[:2].iterrows(), rows[:2]):
+        gap = abs(got["predicted"] - float(want["predicted"]))
+        if age == 18:
+            assert gap < TOLERANCE
+        else:
+            assert gap > 0.03
 
 
 def test_nhanes3_women_aged_18_get_the_same_value_from_both_equations():
@@ -247,32 +237,36 @@ def test_nhanes3_women_aged_18_get_the_same_value_from_both_equations():
         assert younger == pytest.approx(older, abs=TOLERANCE)
 
 
-@pytest.mark.parametrize("sex_code, age", [(1, 19.5), (2, 17.5)])
-def test_nhanes3_pins_pyspiro_older_equation_for_fractional_age_below_change_point(
-    sex_code, age
-):
-    # Current behaviour, kept on purpose until the maintainer decides.
-    # The paper and rspiro use the younger equation for a man of 19.5 years
-    # and a woman of 17.5 years. pyspiro 1.0.0, and so the wrapper, uses the
-    # older equation. The difference in FEV1 is about 0.04 to 0.08 L.
-    sex = _SEX[sex_code]
-    height = 172 if sex == "male" else 165
-    fev1, fvc = (4.0, 4.8) if sex == "male" else (3.0, 3.5)
-    table = compute_nhanes3(age, height, sex_code, 1, fev1, fvc).set_index("parameter")
-    fixture = {
-        r["parameter"]: r
-        for r in next(
-            rows for rows in _cases(_AGE_SPLIT)
-            if _split_case(rows) == (sex, age) and rows[0]["ethnicity_code"] == "1"
-        )
-    }
-    assert indep_nhanes3.age_group(sex, age) == "younger"
-    for parameter in ("FEV1", "FVC"):
-        older = indep_nhanes3.predicted_and_lln(sex, age, height, parameter, "older")
-        younger = indep_nhanes3.predicted_and_lln(sex, age, height, parameter, "younger")
-        assert table.loc[parameter, "predicted"] == pytest.approx(older[0], abs=TOLERANCE)
-        assert float(fixture[parameter]["predicted"]) == pytest.approx(younger[0], abs=TOLERANCE)
-        assert abs(older[0] - younger[0]) > 0.02
+def test_pyspiro_private_age_group_is_still_what_the_wrapper_overrides():
+    # The wrapper overrides HANKINSON_1999._age_group (pyspiro 1.0.0). If
+    # pyspiro renames it, changes its arguments or its return values, this
+    # test fails and the override must be checked again.
+    import inspect
+
+    import numpy
+
+    from pyspiro import HANKINSON_1999
+
+    from quadrant.wrappers import _NHANES3, _Hankinson1999PaperChangePoint
+
+    assert "_age_group" in HANKINSON_1999.__dict__
+    params = list(inspect.signature(HANKINSON_1999._age_group).parameters)
+    assert params == ["self", "sex", "age"]
+    upstream = HANKINSON_1999()
+    male, female = upstream.Sex.MALE.value, upstream.Sex.FEMALE.value
+    assert upstream._age_group(male, 19) == "child"
+    assert upstream._age_group(male, 19.5) == "adult"
+    assert upstream._age_group(female, 17) == "child"
+    assert upstream._age_group(female, 17.5) == "adult"
+    # The override: the change points of the paper, for scalars and arrays.
+    assert isinstance(_NHANES3, _Hankinson1999PaperChangePoint)
+    assert _NHANES3._age_group(male, 19.5) == "child"
+    assert _NHANES3._age_group(male, 20) == "adult"
+    assert _NHANES3._age_group(female, 17.5) == "child"
+    assert _NHANES3._age_group(female, 18) == "adult"
+    ages = numpy.array([17.5, 18.0, 19.5, 20.0])
+    assert list(_NHANES3._age_group(male, ages)) == ["child", "child", "child", "adult"]
+    assert list(_NHANES3._age_group(female, ages)) == ["child", "adult", "adult", "adult"]
 
 
 @pytest.mark.parametrize(
@@ -280,14 +274,13 @@ def test_nhanes3_pins_pyspiro_older_equation_for_fractional_age_below_change_poi
 )
 def test_nhanes3_independent_module_reproduces_rspiro_for_caucasian_rows(rows):
     # Checks the transcription of Tables 4 and 5: with the age group that
-    # rspiro uses, the independent module gives the rspiro values. The
-    # module covers Caucasian subjects only.
+    # rspiro uses (younger below 20 years), the independent module gives
+    # the rspiro values. The module covers Caucasian subjects only.
     sex, age = _split_case(rows)
     height = float(rows[0]["height_cm"])
+    group = "younger" if age < 20 else "older"
     for row in rows[:2]:
-        pred, lln = indep_nhanes3.predicted_and_lln(
-            sex, age, height, row["parameter"], _rspiro_group(age)
-        )
+        pred, lln = indep_nhanes3.predicted_and_lln(sex, age, height, row["parameter"], group)
         assert pred == pytest.approx(float(row["predicted"]), abs=1e-4)
         assert lln == pytest.approx(float(row["lln"]), abs=1e-4)
 
