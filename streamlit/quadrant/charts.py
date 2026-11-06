@@ -42,6 +42,12 @@ STYLES = (
 
 LEGEND_COLUMNS = 4
 
+# Chart height: a base plus one step for each plotted equation. Streamlit
+# fits the legends and the axis (about 220 px) inside this height, so the
+# base keeps three readable parameter rows for a single equation.
+CHART_BASE_HEIGHT = 330
+CHART_EQUATION_HEIGHT = 50
+
 
 def style_for(index: int) -> tuple[str, str]:
     """Colour and shape for the equation at this position. Wraps after eight."""
@@ -200,7 +206,7 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
                 scale=family_scale_colour,
                 legend=alt.Legend(
                     title="Reference equation",
-                    orient="bottom",
+                    orient="top",
                     direction="horizontal",
                     columns=LEGEND_COLUMNS,
                     labelFontSize=12,
@@ -235,7 +241,7 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
     return (
         alt.layer(band_layer, lln_layer, label_layer, marker_layer)
         .resolve_scale(color="independent", fill="independent", shape="independent")
-        .properties(height=120 + 64 * len(families))
+        .properties(height=CHART_BASE_HEIGHT + CHART_EQUATION_HEIGHT * len(families))
         .configure_view(stroke=None)
         .configure_legend(padding=6)
     )

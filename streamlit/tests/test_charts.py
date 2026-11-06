@@ -114,11 +114,16 @@ def test_chart_skips_nan_z_scores():
 
 
 def test_chart_height_grows_with_equations():
+    # Streamlit fits the legends and the axis inside this height, about
+    # 220 px, so one equation still needs room for three parameter rows.
     for n in (1, 3, 6, 8):
         tables = {f"Eq {i}": _table([-1, -2, -3]) for i in range(n)}
-        assert comparison_chart(tables).to_dict()["height"] == 120 + 64 * n
+        assert comparison_chart(tables).to_dict()["height"] == 330 + 50 * n
     spec = comparison_chart({f"Eq {i}": _table([0, 0, 0]) for i in range(8)}).to_dict()
-    assert spec["layer"][3]["encoding"]["color"]["legend"]["columns"] == 4
+    legend = spec["layer"][3]["encoding"]["color"]["legend"]
+    assert legend["columns"] == 4
+    # Above the plot, so it does not share a row with the severity legend.
+    assert legend["orient"] == "top"
 
 
 def _luminance(hex_colour):
