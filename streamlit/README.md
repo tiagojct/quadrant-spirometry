@@ -47,7 +47,7 @@ The equations come from the `pyspiro` package (MIT licence), classes `GLI_2012`,
 
 ## Differences from the R app
 
-- Report: the HTML report is built in memory and downloaded. It needs no Quarto and writes nothing to disk.
+- Report: the HTML report is built in memory and downloaded. It needs no Quarto and writes nothing to disk. It lists every selected equation, also one that rejected the inputs, with the reason. The font is embedded and the file holds no URL. With the default equations it prints on one A4 page. The pinned what-if values are not in the report.
 - NHANES III height range: pyspiro enforces the sampled height range for each sex, ethnicity and age group. rspiro extrapolates outside it. The Python app shows a message instead of an extrapolated value.
 - Ages: each equation checks its own age range (see the table above). GLI-2012, GLI-Global 2022 and NHANES III use the same ranges as the R app.
 - Equations: the R app has GLI-2012, GLI-Global 2022 and NHANES III only.

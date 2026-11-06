@@ -346,3 +346,45 @@ def test_a_pinned_nan_shows_a_hyphen():
     assert not at.exception
     assert _cell(at, "ECCS/Quanjer 1993") == "\\-"
     assert "nan" not in _page_text(at).lower()
+
+
+# The report built by the app.
+
+def _capture_reports(monkeypatch):
+    """Record each report the app renders. The app imports the function
+    on every run, so the patched one is used."""
+    import quadrant.report as report
+
+    reports = []
+    original = report.render_report_html
+
+    def record(bundle):
+        html = original(bundle)
+        reports.append(html)
+        return html
+
+    monkeypatch.setattr(report, "render_report_html", record)
+    return reports
+
+
+def test_the_report_keeps_a_rejected_equation_with_its_reason(monkeypatch):
+    reports = _capture_reports(monkeypatch)
+    _run(equations=["gli_2012", "nhanes3", "kubota_2014"],
+         age_years=5.0, height_cm=110.0, fev1=1.2, fvc=1.5)
+    html = reports[-1]
+    for text in ("GLI-2012", "NHANES III", "Kubota 2014 (JRS)",
+                 "between 8 and 80", "between 17 and 95"):
+        assert text in html
+
+
+def test_the_report_has_no_pinned_values(monkeypatch):
+    reports = _capture_reports(monkeypatch)
+    at = _run()
+    at.button(key="pin_button").click()
+    at.run()
+    at.number_input(key="fev1").set_value(2.80)
+    at.run()
+    assert not at.exception
+    html = reports[-1]
+    assert "Change in z" not in html and "pinned" not in html.lower()
+    assert "2.80 L" in html and "3.20 L" not in html

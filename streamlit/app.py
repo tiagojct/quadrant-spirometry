@@ -14,7 +14,6 @@ Colours and fonts come from .streamlit/config.toml.
 from __future__ import annotations
 
 from datetime import datetime
-from html import escape as html_escape
 
 import streamlit as st
 
@@ -34,7 +33,6 @@ from quadrant.fragments import (
     comparison_notes,
     input_problem,
     pattern_label,
-    render_gli_comparison,
 )
 from quadrant.interpretation import interpret_spirometry
 from quadrant.matrix import MATRIX_LEGEND, markdown_cells, matrix_frames
@@ -275,24 +273,18 @@ with st.sidebar:
     st.subheader("Report", icon=":material/description:")
     report_html = ""
     if inputs_ready:
-        report_chart = cross_family_chart_svg(named_tables)
-        if not_plotted:
-            report_chart += f"<p>{html_escape(not_plotted)}</p>"
+        # Every selected equation is in the report: a rejected one with its
+        # message. The pinned what-if values are not part of the report.
         bundle = prepare_report_bundle(
             subject={
                 "age_years": age_years, "height_cm": height_cm,
-                "sex_label": sex_label,
-                "ethnicity_gli_label": ethnicity_labels.get("gli_2012", "Not selected"),
-                "ethnicity_nhanes3_label": ethnicity_labels.get("nhanes3", "Not selected"),
-                "fev1": fev1, "fvc": fvc,
+                "sex_label": sex_label, "fev1": fev1, "fvc": fvc,
+                "ethnicities": dict(ethnicity_labels),
             },
-            results=tables,
+            equations=selection,
+            results={**tables, **messages},
             interpretations=interpretations,
-            chart_svg=report_chart,
-            comparison_html=(
-                render_gli_comparison(tables.get("gli_2012"), tables.get("gli_2022"))
-                if both_gli else ""
-            ),
+            chart_svg=cross_family_chart_svg(named_tables),
         )
         report_html = render_report_html(bundle)
     st.download_button(
