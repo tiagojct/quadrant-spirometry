@@ -1,0 +1,48 @@
+# Equation verification log
+
+Each equation in `streamlit/quadrant/registry.py` has one row in this table. A test fails when a registered key has no row.
+
+| key | source checked | how it was checked | date | result | status |
+|---|---|---|---|---|---|
+| gli_2012 | GLI-2012 reference equations, as implemented in rspiro | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
+| gli_2022 | GLI Global 2022 reference equations, as implemented in rspiro | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
+| nhanes3 | NHANES III reference equations, as implemented in rspiro | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
+
+Allowed status values: `verified`, `single source`, `excluded`.
+
+## Policy
+
+An equation is added only when it matches a published source. A set that cannot be checked is excluded and listed here.
+
+## How to regenerate the JRS fixtures
+
+Run this command from the repo root, so that .Rprofile activates renv:
+
+```
+Rscript streamlit/tests/r/make_jrs_fixtures.R
+```
+
+The script writes tests/testthat/fixtures/jrs_reference_cases.csv. All numbers come from rspiro. The file has 15 cases with 3 rows each (FEV1, FVC, FEV1FVC).
+
+## rspiro arguments
+
+- `pred_JRS(age, height, gender = 1, param = "FEV1")`
+- `LLN_JRS(age, height, gender = 1, param = "FEV1")`
+- `zscore_JRS(age, height, gender = 1, FEV1 = NULL, FVC = NULL, VC = NULL, FEV1FVC = NULL)`
+- `pctpred_JRS(age, height, gender = 1, FEV1 = NULL, FVC = NULL, VC = NULL, FEV1FVC = NULL)`
+- Sex: `gender` is 1 for male and 2 for female.
+- Height is in metres. Age is in years.
+- FEV1/FVC is a fraction, not a percentage.
+- `param` takes one of "FEV1", "FVC", "FEV1FVC".
+- The fixture covers ages 17 to 95. rspiro returns NA for females older than 93, so the oldest female case is 90.
+
+## Pending
+
+These equations have no row in the table yet. Add the row when the equation enters the registry.
+
+- kubota_2014 (JRS): expected status verified, with the rspiro fixture.
+- pereira_2007: pending, status not decided.
+- eccs_1993: pending, status not decided.
+- jian_2017: pending, status not decided.
+- jo_2018: pending, status not decided.
+- choi_2005: expected status excluded (plan recommendation: no lower limit, needs weight).
