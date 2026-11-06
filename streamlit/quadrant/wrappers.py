@@ -111,34 +111,36 @@ def validate_subject_inputs(
             or not isinstance(value, numbers.Real)
             or pd.isna(value)
         ):
-            raise ValueError(f"{label} must be a single non-missing numeric value.")
+            raise ValueError(f"{label} must be a single number.")
 
-    scalar(age_years, "age_years")
-    scalar(height_cm, "height_cm")
-    scalar(fev1, "fev1")
-    scalar(fvc, "fvc")
+    scalar(age_years, "Age")
+    scalar(height_cm, "Height")
+    scalar(fev1, "FEV1")
+    scalar(fvc, "FVC")
 
     if age_years < age_range[0] or age_years > age_range[1]:
         raise ValueError(
-            f"age_years must be between {age_range[0]:g} and {age_range[1]:g} "
-            "years for this reference equation."
+            f"Age must be between {age_range[0]:g} and {age_range[1]:g} "
+            "years for this equation."
         )
     if height_cm < HEIGHT_RANGE_CM[0] or height_cm > HEIGHT_RANGE_CM[1]:
         raise ValueError(
-            "height_cm must be a plausible standing height in centimetres "
-            f"({HEIGHT_RANGE_CM[0]:g} to {HEIGHT_RANGE_CM[1]:g})."
+            f"Height must be between {HEIGHT_RANGE_CM[0]:g} and "
+            f"{HEIGHT_RANGE_CM[1]:g} cm."
         )
     if fev1 <= 0 or fvc <= 0:
-        raise ValueError("fev1 and fvc must be positive values in litres.")
+        raise ValueError("FEV1 and FVC must be greater than zero.")
     if fev1 > fvc:
-        raise ValueError("fev1 cannot exceed fvc; check the inputs.")
+        raise ValueError("FEV1 cannot be larger than FVC. Check the values.")
     if sex_code not in SEX_CODES.values():
-        codes = ", ".join(str(c) for c in SEX_CODES.values())
-        raise ValueError(f"sex_code must be one of: {codes}.")
+        codes = ", ".join(f"{c} ({label.lower()})" for label, c in SEX_CODES.items())
+        raise ValueError(f"Sex must be one of the codes {codes}.")
     if valid_ethnicity is not None:
         if ethnicity_code not in valid_ethnicity.values():
-            codes = ", ".join(str(c) for c in valid_ethnicity.values())
-            raise ValueError(f"ethnicity_code must be one of: {codes}.")
+            codes = ", ".join(f"{c} ({label})" for label, c in valid_ethnicity.items())
+            raise ValueError(
+                f"Ethnicity must be one of the codes of this equation: {codes}."
+            )
 
 
 def _long_table(
@@ -342,7 +344,7 @@ def compute_kubota_2014(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFra
     )
     if sex_code == SEX_CODES["Female"] and age_years >= JRS_FEMALE_MAX_AGE_YEARS:
         raise ValueError(
-            "for women the JRS 2014 equations are available below "
+            "For women, Kubota 2014 (JRS) covers ages below "
             f"{JRS_FEMALE_MAX_AGE_YEARS} years."
         )
     return _long_table(
@@ -350,7 +352,7 @@ def compute_kubota_2014(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFra
         (_PYSPIRO_SEX[sex_code], age_years, height_cm),
         _JRS_PARAM_CODES,
         _observed(fev1, fvc),
-        "JRS 2014",
+        "Kubota 2014 (JRS)",
     )
 
 
@@ -386,12 +388,12 @@ def compute_pereira_2007(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFr
         )
     if not ages[0] <= age_years <= ages[1]:
         raise ValueError(
-            f"for {label} the Pereira 2007 equations cover {ages[0]} to "
+            f"For {label}, Pereira 2007 covers ages {ages[0]} to "
             f"{ages[1]} years."
         )
     if not heights[0] <= height_cm <= heights[1]:
         raise ValueError(
-            f"for {label} the Pereira 2007 equations cover {heights[0]} to "
+            f"For {label}, Pereira 2007 covers heights {heights[0]} to "
             f"{heights[1]} cm."
         )
     return _regression_table(
@@ -430,7 +432,7 @@ def compute_eccs_1993(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFrame
     ages = ECCS_AGE_RANGE_YEARS
     if not ages[0] <= age_years <= ages[1]:
         raise ValueError(
-            f"the ECCS 1993 equations cover {ages[0]} to {ages[1]} years."
+            f"ECCS 1993 covers ages {ages[0]} to {ages[1]} years."
         )
     if sex_code == SEX_CODES["Male"]:
         label, heights = "men", ECCS_MALE_HEIGHT_RANGE_CM
@@ -438,7 +440,7 @@ def compute_eccs_1993(age_years, height_cm, sex_code, fev1, fvc) -> pd.DataFrame
         label, heights = "women", ECCS_FEMALE_HEIGHT_RANGE_CM
     if not heights[0] <= height_cm <= heights[1]:
         raise ValueError(
-            f"for {label} the ECCS 1993 equations cover {heights[0]} to "
+            f"For {label}, ECCS 1993 covers heights {heights[0]} to "
             f"{heights[1]} cm."
         )
     equation_age = max(age_years, ECCS_AGE_FLOOR_YEARS)

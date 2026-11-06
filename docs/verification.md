@@ -43,7 +43,7 @@ Checked on 2026-11-06 with rspiro 0.5 and pyspiro (class KUBOTA_2014). Both retu
 
 - Men: a value for ages 17 to 95 (95 is valid, 95.01 is NA). NA at 16 and from 95.01.
 - Women: a value for ages 17 to 93.99. NA from 94 (93.5 and 93.99 are valid, 94 and 95 are NA). NA at 16 and 96 for both sexes.
-- The wrapper rejects an age where rspiro returns NA. For women the message says: for women the JRS 2014 equations are available below 94 years. The limit is exclusive (94 rejected, 93.99 accepted). The registry age_range stays (17, 95).
+- The wrapper rejects an age where rspiro returns NA. For women the message says: For women, Kubota 2014 (JRS) covers ages below 94 years. The limit is exclusive (94 rejected, 93.99 accepted). The registry age_range stays (17, 95).
 - Non-integer ages: rspiro floors the age only for the spline lookup. The LMS terms use the exact age. Age 30.7 gives a different value from age 30 (men, 170 cm, FEV1: 3.8351 L and 3.8623 L). The wrapper agrees with rspiro. test_kubota_non_integer_age_matches_rspiro pins this.
 - rspiro takes height in metres. The wrapper takes centimetres.
 

@@ -117,14 +117,14 @@ def test_female_codes_map_to_the_female_equations():
 @pytest.mark.parametrize(
     "kwargs, message",
     [
-        (dict(age_years=-1), "age_years"),
-        (dict(height_cm=30), "height_cm"),
-        (dict(sex_code=9), "sex_code"),
-        (dict(ethnicity_code=99), "ethnicity_code"),
-        (dict(fev1=5.0, fvc=4.0), "fev1 cannot exceed fvc"),
-        (dict(fev1=0.0), "positive"),
-        (dict(age_years=None), "age_years"),
-        (dict(age_years=float("nan")), "age_years"),
+        (dict(age_years=-1), "Age must be between 3 and 95 years for this equation."),
+        (dict(height_cm=30), "Height must be between 50 and 250 cm."),
+        (dict(sex_code=9), r"Sex must be one of the codes 1 \(male\), 2 \(female\)."),
+        (dict(ethnicity_code=99), r"Ethnicity must be one of the codes of this equation: 1 \(Caucasian\)"),
+        (dict(fev1=5.0, fvc=4.0), "FEV1 cannot be larger than FVC. Check the values."),
+        (dict(fev1=0.0), "FEV1 and FVC must be greater than zero."),
+        (dict(age_years=None), "Age must be a single number."),
+        (dict(age_years=float("nan")), "Age must be a single number."),
     ],
 )
 def test_gli_2012_rejects_bad_inputs(kwargs, message):
@@ -222,7 +222,7 @@ def test_kubota_women_are_accepted_below_94_years():
     for age in (94.0, 94, 95):
         with pytest.raises(
             ValueError,
-            match="for women the JRS 2014 equations are available below 94 years",
+            match=r"For women, Kubota 2014 \(JRS\) covers ages below 94 years.",
         ):
             compute_kubota_2014(age, 160, 2, 1.2, 1.6)
 
@@ -336,10 +336,10 @@ def test_pereira_cases_fall_on_both_sides_of_the_lower_limit():
         assert any(below) and not all(below), parameter
 
 
-PEREIRA_MALE_AGE_MESSAGE = "for men the Pereira 2007 equations cover 26 to 86 years"
-PEREIRA_FEMALE_AGE_MESSAGE = "for women the Pereira 2007 equations cover 20 to 85 years"
-PEREIRA_MALE_HEIGHT_MESSAGE = "for men the Pereira 2007 equations cover 152 to 192 cm"
-PEREIRA_FEMALE_HEIGHT_MESSAGE = "for women the Pereira 2007 equations cover 137 to 182 cm"
+PEREIRA_MALE_AGE_MESSAGE = "For men, Pereira 2007 covers ages 26 to 86 years."
+PEREIRA_FEMALE_AGE_MESSAGE = "For women, Pereira 2007 covers ages 20 to 85 years."
+PEREIRA_MALE_HEIGHT_MESSAGE = "For men, Pereira 2007 covers heights 152 to 192 cm."
+PEREIRA_FEMALE_HEIGHT_MESSAGE = "For women, Pereira 2007 covers heights 137 to 182 cm."
 
 
 def test_pereira_age_range():
@@ -460,9 +460,9 @@ def test_eccs_age_floor_below_25():
         assert (at_26["predicted"] < at_25["predicted"]).all()
 
 
-ECCS_AGE_MESSAGE = "the ECCS 1993 equations cover 18 to 70 years"
-ECCS_MALE_HEIGHT_MESSAGE = "for men the ECCS 1993 equations cover 155 to 195 cm"
-ECCS_FEMALE_HEIGHT_MESSAGE = "for women the ECCS 1993 equations cover 145 to 180 cm"
+ECCS_AGE_MESSAGE = "ECCS 1993 covers ages 18 to 70 years."
+ECCS_MALE_HEIGHT_MESSAGE = "For men, ECCS 1993 covers heights 155 to 195 cm."
+ECCS_FEMALE_HEIGHT_MESSAGE = "For women, ECCS 1993 covers heights 145 to 180 cm."
 
 
 def test_eccs_age_range():
@@ -545,3 +545,43 @@ def test_regression_table_allows_a_missing_lln_only_when_not_required():
             _ECCS_1993, (1, 40, 150), *args[2:], ratio_scale=100.0,
             limits_required=False,
         )
+
+
+def _registry_messages():
+    """Messages of every registry equation for a set of unusable inputs."""
+    from quadrant.registry import EQUATIONS, Subject, compute_equation
+
+    base = dict(age_years=40.0, height_cm=170.0, sex_code=1, fev1=3.0, fvc=4.0)
+    bad = [
+        dict(age_years=200.0), dict(age_years=1.0), dict(age_years=float("nan")),
+        dict(height_cm=30.0), dict(height_cm=120.0), dict(sex_code=9),
+        dict(fev1=0.0), dict(fev1=5.0), dict(sex_code=2, age_years=94.5),
+        dict(sex_code=2, height_cm=200.0),
+    ]
+    messages = []
+    for key, spec in EQUATIONS.items():
+        code = 1 if spec.ethnicities else None
+        for change in bad:
+            try:
+                compute_equation(key, Subject(**(base | change)), code)
+            except ValueError as error:
+                messages.append((key, str(error)))
+        if spec.ethnicities:
+            try:
+                compute_equation(key, Subject(**base), 99)
+            except ValueError as error:
+                messages.append((key, str(error)))
+    return messages
+
+
+def test_every_wrapper_message_is_user_facing():
+    import re
+
+    messages = _registry_messages()
+    assert len(messages) > 40
+    for key, message in messages:
+        assert re.match(r"[A-Z]", message), (key, message)
+        assert message.endswith("."), (key, message)
+        assert not re.search(r"\w_\w", message), (key, message)
+        for internal in ("fev1", "fvc", "sex_code", "ethnicity_code", "age_years", "height_cm"):
+            assert internal not in message, (key, message)
