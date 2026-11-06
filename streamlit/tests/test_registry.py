@@ -4,7 +4,11 @@ import pandas as pd
 import pytest
 
 from quadrant.registry import DEFAULT_KEYS, EQUATIONS, Subject, compute_equation
-from quadrant.wrappers import compute_gli_2012, compute_kubota_2014
+from quadrant.wrappers import (
+    compute_gli_2012,
+    compute_kubota_2014,
+    compute_pereira_2007,
+)
 
 
 def test_default_keys_are_the_three_current_equations():
@@ -56,3 +60,23 @@ def test_compute_equation_kubota_matches_the_direct_wrapper():
     subject = Subject(40, 170, 2, 2.5, 3.2)
     got = compute_equation("kubota_2014", subject)
     pd.testing.assert_frame_equal(got, compute_kubota_2014(40, 170, 2, 2.5, 3.2))
+
+
+def test_pereira_2007_is_registered_as_a_regional_set():
+    spec = EQUATIONS["pereira_2007"]
+    assert spec.name == "Pereira 2007 (Brazil)"
+    assert spec.citation == "Pereira et al., J Bras Pneumol 2007"
+    assert spec.group == "regional"
+    assert spec.ethnicities is None
+    assert spec.has_lower_limit is True
+    assert spec.age_range == (20, 86)
+    assert spec.population.startswith("White Brazilian adults, 20 to 86 years")
+    assert "White Brazilian adults" in spec.caveat
+    assert "z-score" in spec.caveat
+    assert "pereira_2007" not in DEFAULT_KEYS
+
+
+def test_compute_equation_pereira_matches_the_direct_wrapper():
+    subject = Subject(40, 165, 2, 2.5, 3.2)
+    got = compute_equation("pereira_2007", subject)
+    pd.testing.assert_frame_equal(got, compute_pereira_2007(40, 165, 2, 2.5, 3.2))

@@ -18,12 +18,14 @@ from .constants import (
     JRS_AGE_RANGE_YEARS,
     NHANES3_AGE_RANGE_YEARS,
     NHANES3_ETHNICITY,
+    PEREIRA_AGE_RANGE_YEARS,
 )
 from .wrappers import (
     compute_gli_2012,
     compute_gli_global_2022,
     compute_kubota_2014,
     compute_nhanes3,
+    compute_pereira_2007,
 )
 
 
@@ -101,6 +103,16 @@ def _kubota_2014(subject: Subject, ethnicity_code: int | None) -> pd.DataFrame:
     )
 
 
+def _pereira_2007(subject: Subject, ethnicity_code: int | None) -> pd.DataFrame:
+    return compute_pereira_2007(
+        subject.age_years,
+        subject.height_cm,
+        subject.sex_code,
+        subject.fev1,
+        subject.fvc,
+    )
+
+
 _SPECS = (
     EquationSpec(
         key="gli_2012",
@@ -158,6 +170,27 @@ _SPECS = (
         group="regional",
         caveat="Japanese reference population. Use for comparison, not as the default.",
         compute=_kubota_2014,
+    ),
+    EquationSpec(
+        key="pereira_2007",
+        name="Pereira 2007 (Brazil)",
+        citation="Pereira et al., J Bras Pneumol 2007",
+        population=(
+            "White Brazilian adults, 20 to 86 years (men 26 to 86, women "
+            "20 to 85)"
+        ),
+        age_range=PEREIRA_AGE_RANGE_YEARS,
+        ethnicities=None,
+        has_lower_limit=True,
+        group="regional",
+        caveat=(
+            "Reference population: White Brazilian adults. Use for "
+            "comparison, not as the default. The paper gives the lower limit "
+            "as the 5th percentile of the residuals and no residual standard "
+            "deviation, so no z-score is computed and the pattern is not "
+            "classified."
+        ),
+        compute=_pereira_2007,
     ),
 )
 

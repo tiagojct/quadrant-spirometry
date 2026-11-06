@@ -46,6 +46,16 @@ JRS_AGE_RANGE_YEARS = (17, 95)
 # exclusive: an age of 94 or more is rejected, 93.99 is accepted.
 JRS_FEMALE_MAX_AGE_YEARS = 94
 
+# Age range in years of the Pereira 2007 equations for White Brazilian
+# adults (J Bras Pneumol 2007;33(4):397-406,
+# doi:10.1590/S1806-37132007000400008). The sampled ranges differ by sex
+# (Tables 3 and 4 of the paper); the wrapper checks them separately.
+PEREIRA_AGE_RANGE_YEARS = (20, 86)
+PEREIRA_MALE_AGE_RANGE_YEARS = (26, 86)
+PEREIRA_FEMALE_AGE_RANGE_YEARS = (20, 85)
+PEREIRA_MALE_HEIGHT_RANGE_CM = (152, 192)
+PEREIRA_FEMALE_HEIGHT_RANGE_CM = (137, 182)
+
 # Plausible physiological age range, used when a wrapper passes no
 # equation-specific range.
 PLAUSIBLE_AGE_RANGE_YEARS = (0, 120)

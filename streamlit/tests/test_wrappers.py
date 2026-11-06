@@ -10,9 +10,11 @@ from quadrant.wrappers import (
     compute_gli_global_2022,
     compute_kubota_2014,
     compute_nhanes3,
+    compute_pereira_2007,
     validate_subject_inputs,
 )
 from tests.conftest import read_fixture
+from tests.independent import pereira_2007 as pereira_paper
 
 # Contract from CLAUDE.md: predicted, LLN and z-score within 0.01 of the
 # reference. Percent of predicted is on a 0 to 100 scale and gets 0.05.
@@ -263,3 +265,123 @@ def test_kubota_sex_mapping():
     male = compute_kubota_2014(40, 170, 1, 3.0, 4.0)
     female = compute_kubota_2014(40, 170, 2, 3.0, 4.0)
     assert male["predicted"].iloc[0] > female["predicted"].iloc[0]
+
+
+# Pereira 2007: wrapper against the independent module written from
+# Tables 3 and 4 of the paper. The sampled ranges differ by sex: men 26 to
+# 86 years and 152 to 192 cm, women 20 to 85 years and 137 to 182 cm.
+PEREIRA_TOLERANCE = 0.005
+PEREIRA_SEX = {1: "male", 2: "female"}
+PEREIRA_CASES = [
+    # (sex_code, age_years, height_cm, fev1, fvc)
+    (1, 26, 185, 4.5, 5.6),
+    (1, 40, 170, 3.0, 4.0),
+    (1, 50, 175, 2.5, 3.6),
+    (1, 60, 165, 3.2, 4.2),
+    (1, 70, 180, 2.0, 4.0),
+    (1, 86, 155, 1.4, 2.0),
+    (2, 20, 165, 3.5, 4.1),
+    (2, 30, 150, 2.0, 2.4),
+    (2, 40, 160, 2.6, 3.3),
+    (2, 60, 170, 1.8, 3.0),
+    (2, 75, 180, 2.4, 2.9),
+    (2, 85, 155, 1.5, 2.2),
+]
+
+
+def _pereira_expected(sex_code, age, height, parameter):
+    sex = PEREIRA_SEX[sex_code]
+    scale = 100.0 if parameter == "FEV1FVC" else 1.0
+    return (
+        pereira_paper.predicted(sex, age, height, parameter) / scale,
+        pereira_paper.lower_limit(sex, age, height, parameter) / scale,
+    )
+
+
+@pytest.mark.parametrize("case", PEREIRA_CASES)
+def test_pereira_matches_the_published_equations(case):
+    sex_code, age, height, fev1, fvc = case
+    table = compute_pereira_2007(age, height, sex_code, fev1, fvc)
+    assert list(table.columns) == list(TABLE_COLUMNS)
+    assert tuple(table["parameter"]) == SPIROMETRY_PARAMS
+    observed = {"FEV1": fev1, "FVC": fvc, "FEV1FVC": fev1 / fvc}
+    for _, row in table.iterrows():
+        parameter = row["parameter"]
+        want_pred, want_lln = _pereira_expected(sex_code, age, height, parameter)
+        assert row["observed"] == pytest.approx(observed[parameter])
+        assert row["predicted"] == pytest.approx(want_pred, abs=PEREIRA_TOLERANCE)
+        assert row["lln"] == pytest.approx(want_lln, abs=PEREIRA_TOLERANCE)
+        assert row["percent_predicted"] == pytest.approx(
+            observed[parameter] / want_pred * 100, abs=TOLERANCE_PERCENT
+        )
+        # The paper publishes no residual standard deviation, so no z-score.
+        assert pd.isna(row["z_score"])
+
+
+def test_pereira_cases_fall_on_both_sides_of_the_lower_limit():
+    for parameter, index in (("FEV1", 3), ("FVC", 4)):
+        below = [
+            case[index]
+            < _pereira_expected(case[0], case[1], case[2], parameter)[1]
+            for case in PEREIRA_CASES
+        ]
+        assert any(below) and not all(below), parameter
+
+
+def test_pereira_age_range():
+    for sex_code in (1, 2):
+        with pytest.raises(ValueError, match="between 20 and 86"):
+            compute_pereira_2007(19, 165, sex_code, 3.0, 4.0)
+        with pytest.raises(ValueError, match="between 20 and 86"):
+            compute_pereira_2007(87, 165, sex_code, 2.0, 3.0)
+    assert len(compute_pereira_2007(20, 160, 2, 2.8, 3.4)) == 3
+    assert len(compute_pereira_2007(86, 170, 1, 2.0, 3.0)) == 3
+    assert len(compute_pereira_2007(26, 170, 1, 3.5, 4.5)) == 3
+    assert len(compute_pereira_2007(85, 160, 2, 1.5, 2.0)) == 3
+
+
+def test_pereira_sex_specific_ranges_follow_the_paper():
+    with pytest.raises(ValueError, match="for men .* 26 to 86 years"):
+        compute_pereira_2007(25.9, 170, 1, 3.5, 4.5)
+    with pytest.raises(ValueError, match="for women .* 20 to 85 years"):
+        compute_pereira_2007(85.5, 160, 2, 1.5, 2.0)
+    with pytest.raises(ValueError, match="for men .* 152 to 192 cm"):
+        compute_pereira_2007(40, 150, 1, 3.0, 4.0)
+    with pytest.raises(ValueError, match="for women .* 137 to 182 cm"):
+        compute_pereira_2007(40, 185, 2, 3.0, 4.0)
+    assert len(compute_pereira_2007(40, 152, 1, 3.0, 4.0)) == 3
+    assert len(compute_pereira_2007(40, 192, 1, 3.0, 4.0)) == 3
+    assert len(compute_pereira_2007(40, 137, 2, 2.0, 2.5)) == 3
+    assert len(compute_pereira_2007(40, 182, 2, 3.0, 4.0)) == 3
+
+
+def test_pereira_ratio_is_a_fraction():
+    table = compute_pereira_2007(40, 170, 1, 3.0, 4.0)
+    ratio = table[table["parameter"] == "FEV1FVC"].iloc[0]
+    assert ratio["observed"] == pytest.approx(0.75)
+    assert 0.7 < ratio["predicted"] < 0.9
+    assert ratio["lln"] < ratio["predicted"]
+
+
+def test_pereira_sex_mapping():
+    male = compute_pereira_2007(40, 170, 1, 3.0, 4.0)
+    female = compute_pereira_2007(40, 170, 2, 3.0, 4.0)
+    assert male["predicted"].iloc[0] > female["predicted"].iloc[0]
+
+
+def test_pereira_does_not_use_weight():
+    import inspect
+
+    from pyspiro import PEREIRA_2007
+
+    assert "weight" not in inspect.signature(compute_pereira_2007).parameters
+    reference = PEREIRA_2007()
+    for code in (1, 3, 7):  # FVC, FEV1, FEV1FVC: the height and age models
+        without = reference.lln(1, 40, 170, parameter=code)
+        for weight in (50, 70, 120):
+            assert reference.lln(1, 40, 170, parameter=code, weight=weight) == without
+    table = compute_pereira_2007(40, 170, 1, 3.0, 4.0)
+    for _, row in table.iterrows():
+        want_pred, want_lln = _pereira_expected(1, 40, 170, row["parameter"])
+        assert row["predicted"] == pytest.approx(want_pred, abs=PEREIRA_TOLERANCE)
+        assert row["lln"] == pytest.approx(want_lln, abs=PEREIRA_TOLERANCE)

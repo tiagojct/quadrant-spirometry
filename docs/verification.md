@@ -8,6 +8,7 @@ Each equation in `streamlit/quadrant/registry.py` has one row in this table. A t
 | gli_2022 | GLI Global 2022 reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
 | nhanes3 | NHANES III reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
 | kubota_2014 | Kubota et al. 2014: Python wrapper compared with rspiro output (15 cases, tests/testthat/fixtures/jrs_reference_cases.csv) | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures. The fixture covers women only up to age 90. The edge ages 93.5 to 95 are covered by unit tests, not by the fixture (see JRS age facts) | verified |
+| pereira_2007 | Pereira et al., J Bras Pneumol 2007;33(4):397-406, doi:10.1590/S1806-37132007000400008. Table 3 (men) and Table 4 (women), height and age models of FVC, FEV1 and FEV1/FVC. Read from https://www.jornaldepneumologia.com.br/export-pdf/370/2007_33_4_8_english.pdf (Portuguese PDF 2007_33_4_8_portugues.pdf gives the same values) | Python wrapper (pyspiro PEREIRA_2007) compared with an independent implementation written from Tables 3 and 4 (streamlit/tests/independent/pereira_2007.py), 12 cases, tolerance 0.005, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Predicted value and lower limit match the paper. No z-score: the paper gives no residual standard deviation (see Pereira 2007 notes) | verified |
 
 Allowed status values: `verified`, `single source`, `excluded`.
 
@@ -55,11 +56,23 @@ Checked on 2026-11-06 with rspiro 0.5 and pyspiro (class KUBOTA_2014). Both retu
 - `param` takes one of "FEV1", "FVC", "FEV1FVC".
 - The fixture covers ages 17 to 95. rspiro returns NA for females older than 93, so the oldest female case is 90.
 
+## Pereira 2007 notes
+
+Checked on 2026-11-06 against the English and Portuguese PDFs of the paper and the Table 4 image on the journal site. The three sources give the same values.
+
+- Equations: linear in height (cm) and age (years), predicted = height coefficient x height + age coefficient x age + constant. The signs are part of the printed coefficients. Men are in Table 3, women in Table 4.
+- Lower limit: the paper says that the lower limits "were calculated using the 5th percentile of the residual". The tables print it as P - x (men: FVC 0.90 L, FEV1 0.76 L, FEV1/FVC 7.6; women: FVC 0.64 L, FEV1 0.61 L, FEV1/FVC 8.50).
+- No z-score: the lower limit is an empirical percentile, not predicted minus 1.645 times a residual standard deviation, and the paper gives no residual standard deviation. The wrapper does not derive a z-score. z_score is NaN, lln is set, and the pattern is not classified. pyspiro also returns NA for zscore() and lms() for this class.
+- Ratio units: the paper gives FEV1/FVC in percent. The wrapper returns the ratio, its predicted value and its lower limit as fractions.
+- Weight: Table 3 also gives models with weight for men. The app collects no weight, so the wrapper uses the height and age models only (pyspiro parameters 1, 3 and 7, not the _WT parameters).
+- Age and height: the registry range is 20 to 86 years. The sampled ranges differ by sex: men 26 to 86 years and 152 to 192 cm, women 20 to 85 years and 137 to 182 cm. The wrapper rejects inputs outside the range for the sex. The limits are inclusive on the exact value (85.5 is rejected for women), as in pyspiro.
+- Predicted value: pyspiro lms() returns NA for this class, so the wrapper reads the predicted value from the pyspiro regression result (_scalar_regression, pyspiro 1.0.0). It does not derive it from percent().
+- pyspiro check: over 180 evaluations (both sexes, the age and height edges, three parameters) pyspiro and the independent module differ by less than 1e-13.
+
 ## Pending
 
 These equations have no row in the table yet. Add the row when the equation enters the registry.
 
-- pereira_2007: pending, status not decided.
 - eccs_1993: pending, status not decided.
 - jian_2017: pending, status not decided.
 - jo_2018: pending, status not decided.
