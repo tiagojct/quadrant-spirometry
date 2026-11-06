@@ -58,7 +58,7 @@ BADGE_COLOURS = {
     "ungraded": "blue",
 }
 
-NOT_CLASSIFIED_LABEL = "Not classified (no z-score for this equation)"
+NOT_CLASSIFIED_LABEL = "Not classified (no lower limit and no z-score for this equation)"
 
 # Wording for a result classified from observed values against a
 # published lower limit (an equation without a z-score, Pereira 2007).
@@ -145,8 +145,8 @@ def render_interpretation(interpretation: dict | None) -> str:
         return (
             '<div><p class="qd-line"><span class="qd-muted">Pattern: </span>'
             "<span>Not classified</span></p>"
-            '<p class="qd-line qd-muted">This equation gives no z-score, '
-            "so the result is not classified.</p></div>"
+            '<p class="qd-line qd-muted">This equation gives no lower limit '
+            "and no z-score, so the result is not classified.</p></div>"
         )
     pattern_line = (
         '<p class="qd-line"><span class="qd-muted">Pattern: </span>'

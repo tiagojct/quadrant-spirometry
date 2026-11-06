@@ -112,7 +112,7 @@ def test_the_last_selected_equation_cannot_be_removed():
 def test_an_unclassified_equation_shows_the_label_and_no_nan():
     at = _run(equations=["gli_2012", "eccs_1993"])
     assert not at.exception
-    assert "Not classified (no z-score for this equation)" in _markdown(at)
+    assert "Not classified (no lower limit and no z-score for this equation)" in _markdown(at)
     assert "nan" not in _page_text(at).lower()
     assert "ECCS/Quanjer 1993" in _matrix_rows(at)
     # The table cells are Markdown, so the hyphen is escaped (shows as "-").

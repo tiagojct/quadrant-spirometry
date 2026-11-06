@@ -641,7 +641,7 @@ def test_eccs_result_is_not_classified():
     assert result["pattern"] is None
     assert result["severity"] is None
     assert pattern_label(result) == NOT_CLASSIFIED_LABEL
-    assert NOT_CLASSIFIED_LABEL == "Not classified (no z-score for this equation)"
+    assert NOT_CLASSIFIED_LABEL == "Not classified (no lower limit and no z-score for this equation)"
 
 
 def test_nan_z_scores_never_render_as_nan_text():
