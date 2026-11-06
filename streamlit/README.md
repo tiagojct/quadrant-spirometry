@@ -32,7 +32,7 @@ The operator selects the equations in the sidebar. The selector has three groups
 | historical | NHANES III (Hankinson et al., AJRCCM 1999) | United States, with an ethnicity choice | 8 to 80 | yes |
 | historical | ECCS/Quanjer 1993 (Eur Respir J 1993) | adults of European descent | 18 to 70 | no |
 | regional | Kubota 2014, JRS (Respir Investig 2014) | Japanese adults | 17 to 95 | yes |
-| regional | Pereira 2007 (J Bras Pneumol 2007) | White Brazilian adults | 20 to 86 | lower limit only |
+| regional | Pereira 2007 (J Bras Pneumol 2007) | White Brazilian adults | 26 to 86 (men), 20 to 85 (women) | lower limit only |
 
 GLI-2012, GLI-Global 2022 and NHANES III are selected when the page opens. At least one equation stays selected. Each historical and regional set shows a short caveat. An equation without a z-score is shown as not classified, never as normal. The equation notes on the page give the citation, the population and the age range of each set.
 
