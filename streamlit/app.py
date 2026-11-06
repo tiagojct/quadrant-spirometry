@@ -5,43 +5,39 @@ License: AGPL-3.0-or-later
 Run with: uv run streamlit run app.py
 
 The app keeps no state between sessions and writes nothing to disk.
+Session state holds only the current inputs and the chosen equations.
 Colours and fonts come from .streamlit/config.toml.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
+from html import escape as html_escape
 
 import streamlit as st
 
+from quadrant.charts import comparison_chart, not_plotted_caption
 from quadrant.constants import (
     DISCLAIMER_TEXT,
     GLI_AGE_RANGE_YEARS,
-    GLI_ETHNICITY,
     HEIGHT_RANGE_CM,
-    LLN_Z,
-    NHANES3_ETHNICITY,
     SEX_CODES,
 )
-from html import escape as html_escape
-
-from quadrant.charts import comparison_chart, not_plotted_caption
 from quadrant.fragments import (
     AGREE_NOTE,
     AGREE_TEXT,
-    BELOW_LLN_NOTE,
     badge_colour,
     classification_summary,
     comparison_notes,
     input_problem,
     pattern_label,
     render_gli_comparison,
-    results_for_display,
 )
 from quadrant.interpretation import interpret_spirometry
+from quadrant.matrix import MATRIX_LEGEND, markdown_cells, matrix_frames
+from quadrant.registry import DEFAULT_KEYS, EQUATIONS, Subject, compute_equation
 from quadrant.report import prepare_report_bundle, render_report_html
 from quadrant.visuals import cross_family_chart_svg
-from quadrant.wrappers import compute_gli_2012, compute_gli_global_2022, compute_nhanes3
 
 st.set_page_config(
     page_title="Quadrant",
@@ -50,18 +46,60 @@ st.set_page_config(
 )
 
 CHART_ALT = (
-    "Chart of the FEV1, FVC and FEV1/FVC z-scores for each reference "
-    "equation family, on one axis with the lower limit of normal marked "
-    "at -1.645 and the severity bands shaded."
+    "Chart of the FEV1, FVC and FEV1/FVC z-scores for each selected reference "
+    "equation, on one axis with the lower limit of normal marked at -1.645 "
+    "and the severity bands shaded."
 )
 
+# Equation groups in the order of the selector, with their labels.
+GROUPS = (
+    ("recommended", "Recommended"),
+    ("historical", "Historical"),
+    ("regional", "Regional"),
+)
 
-def compute_family(function, **kwargs):
-    """Return (table, None) on success or (None, message) on failure."""
-    try:
-        return function(**kwargs), None
-    except ValueError as error:
-        return None, str(error)
+GUARD_NOTE = "At least one equation must stay selected."
+NOT_AVAILABLE_TITLE = "Not available for these inputs"
+
+
+def group_key(group: str) -> str:
+    """Session state key of the pills for one group."""
+    return f"equations_{group}"
+
+
+def selected_keys() -> list[str]:
+    """Registry keys chosen in the pills, in registry order."""
+    chosen = {
+        key
+        for group, _ in GROUPS
+        for key in st.session_state.get(group_key(group)) or []
+    }
+    return [key for key in EQUATIONS if key in chosen]
+
+
+def keep_one_selected() -> None:
+    """Pills callback: put the previous choice back when none is left."""
+    if selected_keys():
+        st.session_state["selection_guard"] = False
+        return
+    previous = st.session_state.get("previous_selection") or list(DEFAULT_KEYS)
+    for group, _ in GROUPS:
+        st.session_state[group_key(group)] = [
+            key for key in previous if EQUATIONS[key].group == group
+        ]
+    st.session_state["selection_guard"] = True
+
+
+# The pills start at the default equations. Callbacks run before this
+# line, so the selection read here is the current one.
+for _group, _ in GROUPS:
+    st.session_state.setdefault(
+        group_key(_group),
+        [key for key in DEFAULT_KEYS if EQUATIONS[key].group == _group],
+    )
+selection = selected_keys() or list(DEFAULT_KEYS)
+st.session_state["previous_selection"] = selection
+specs = [EQUATIONS[key] for key in selection]
 
 
 # Sidebar inputs. Each widget has a key so that the tests can set it.
@@ -72,7 +110,7 @@ with st.sidebar:
         "Age (years)", key="age_years", value=40.0,
         min_value=float(GLI_AGE_RANGE_YEARS[0]),
         max_value=float(GLI_AGE_RANGE_YEARS[1]), step=1.0,
-        help="GLI equations cover 3 to 95 years. NHANES III covers 8 to 80 years.",
+        help="Each equation covers its own age range. See the equation notes.",
     )
     height_cm = height_col.number_input(
         "Height (cm)", key="height_cm", value=170.0,
@@ -83,13 +121,15 @@ with st.sidebar:
         "Sex", list(SEX_CODES), default="Male", required=True,
         key="sex", width="stretch",
     )
-    ethnicity_gli_label = st.selectbox(
-        "Ethnicity (GLI-2012)", list(GLI_ETHNICITY), key="ethnicity_gli"
-    )
-    ethnicity_nhanes3_label = st.selectbox(
-        "Ethnicity (NHANES III)", list(NHANES3_ETHNICITY), key="ethnicity_nhanes3",
-        help="NHANES III has three categories. GLI-Global 2022 has none.",
-    )
+    # One ethnicity selector for each selected equation that uses one.
+    ethnicity_labels = {
+        spec.key: st.selectbox(
+            f"Ethnicity ({spec.name})", list(spec.ethnicities),
+            key=f"ethnicity_{spec.key}",
+        )
+        for spec in specs
+        if spec.ethnicities
+    }
 
     st.subheader("Spirometry", icon=":material/air:")
     fev1_col, fvc_col = st.columns(2)
@@ -104,60 +144,66 @@ with st.sidebar:
     if fvc > 0:
         st.caption(f"FEV1/FVC ratio: {fev1 / fvc:.2f}")
 
+    st.subheader("Reference equations", icon=":material/functions:")
+    for _group, _label in GROUPS:
+        st.pills(
+            _label,
+            [key for key, spec in EQUATIONS.items() if spec.group == _group],
+            selection_mode="multi",
+            format_func=lambda key: EQUATIONS[key].name,
+            key=group_key(_group),
+            on_change=keep_one_selected,
+        )
+    if st.session_state.get("selection_guard"):
+        st.caption(GUARD_NOTE)
+
 problem = input_problem(fev1, fvc)
 inputs_ready = 0 < fev1 <= fvc
-sex_code = SEX_CODES[sex_label]
+subject = Subject(age_years, height_cm, SEX_CODES[sex_label], fev1, fvc)
 
-calc = {"gli_2012": (None, None), "gli_2022": (None, None), "nhanes3": (None, None)}
+# One result or one message for each selected equation. An equation that
+# rejects the inputs does not stop the others.
+tables: dict = {}
+interpretations: dict = {}
+messages: dict = {}
 if inputs_ready:
-    calc["gli_2012"] = compute_family(
-        compute_gli_2012, age_years=age_years, height_cm=height_cm,
-        sex_code=sex_code, ethnicity_code=GLI_ETHNICITY[ethnicity_gli_label],
-        fev1=fev1, fvc=fvc,
-    )
-    calc["gli_2022"] = compute_family(
-        compute_gli_global_2022, age_years=age_years, height_cm=height_cm,
-        sex_code=sex_code, fev1=fev1, fvc=fvc,
-    )
-    calc["nhanes3"] = compute_family(
-        compute_nhanes3, age_years=age_years, height_cm=height_cm,
-        sex_code=sex_code, ethnicity_code=NHANES3_ETHNICITY[ethnicity_nhanes3_label],
-        fev1=fev1, fvc=fvc,
-    )
+    for spec in specs:
+        code = spec.ethnicities[ethnicity_labels[spec.key]] if spec.ethnicities else None
+        try:
+            table = compute_equation(spec.key, subject, code)
+            interpretations[spec.key] = interpret_spirometry(table)
+            tables[spec.key] = table
+        except ValueError as error:
+            messages[spec.key] = str(error)
 
-results = {key: table for key, (table, _) in calc.items()}
-messages = {key: message for key, (_, message) in calc.items()}
-interpretations = {
-    key: interpret_spirometry(table) if table is not None else None
-    for key, table in results.items()
-}
-family_tables = {
-    "GLI-2012": results["gli_2012"],
-    "GLI-Global 2022": results["gli_2022"],
-    "NHANES III": results["nhanes3"],
-}
-report_chart = cross_family_chart_svg(family_tables)
-if not_plotted_caption(family_tables):
-    report_chart += f"<p>{html_escape(not_plotted_caption(family_tables))}</p>"
-screen_chart = comparison_chart(family_tables)
+# Chart input keyed by name, with None for an equation without a result.
+named_tables = {spec.name: tables.get(spec.key) for spec in specs}
+not_plotted = not_plotted_caption(named_tables)
+both_gli = "gli_2012" in selection and "gli_2022" in selection
 
 # Report export, built in memory when the inputs are usable.
 with st.sidebar:
     st.subheader("Report", icon=":material/description:")
     report_html = ""
     if inputs_ready:
+        report_chart = cross_family_chart_svg(named_tables)
+        if not_plotted:
+            report_chart += f"<p>{html_escape(not_plotted)}</p>"
         bundle = prepare_report_bundle(
             subject={
                 "age_years": age_years, "height_cm": height_cm,
                 "sex_label": sex_label,
-                "ethnicity_gli_label": ethnicity_gli_label,
-                "ethnicity_nhanes3_label": ethnicity_nhanes3_label,
+                "ethnicity_gli_label": ethnicity_labels.get("gli_2012", "Not selected"),
+                "ethnicity_nhanes3_label": ethnicity_labels.get("nhanes3", "Not selected"),
                 "fev1": fev1, "fvc": fvc,
             },
-            results=results,
+            results=tables,
             interpretations=interpretations,
             chart_svg=report_chart,
-            comparison_html=render_gli_comparison(results["gli_2012"], results["gli_2022"]),
+            comparison_html=(
+                render_gli_comparison(tables.get("gli_2012"), tables.get("gli_2022"))
+                if both_gli else ""
+            ),
         )
         report_html = render_report_html(bundle)
     st.download_button(
@@ -177,78 +223,90 @@ st.html("<style>td, th { font-variant-numeric: tabular-nums; }</style>")
 
 st.title("Quadrant", icon=":material/explore:")
 st.caption(
-    "Spirometry reference values for one subject, compared across three "
-    "equation families."
+    "Spirometry reference values for one subject, compared across the "
+    "selected reference equations."
 )
 
 if problem:
     st.warning(problem, icon=":material/warning:")
 
-CARDS = (
-    ("gli_2012", "GLI-2012", "Quanjer et al., ERJ 2012"),
-    ("gli_2022", "GLI-Global 2022", "Race-neutral. Bowerman et al., AJRCCM 2023"),
-    ("nhanes3", "NHANES III", "Hankinson et al., AJRCCM 1999"),
-)
-
 # 1. The answer first: what each equation says, and whether they agree.
 st.subheader("Classification")
-for column, (key, title, _) in zip(st.columns(3), CARDS):
-    with column:
-        st.markdown(title)
-        if messages[key] is not None:
-            st.badge("Not available", icon=":material/block:", color="gray", width="stretch")
-        elif results[key] is None:
-            st.caption("Enter values to classify.")
-        else:
-            st.badge(
-                pattern_label(interpretations[key]),
-                color=badge_colour(interpretations[key]),
-                width="stretch",
-            )
-summary = classification_summary(interpretations)
-if summary:
-    st.markdown(summary)
+with st.container(border=True):
+    for spec in specs:
+        name_col, result_col = st.columns([1, 3], vertical_alignment="top")
+        name_col.markdown(spec.name)
+        with result_col:
+            if spec.key in messages:
+                st.warning(
+                    messages[spec.key], title=NOT_AVAILABLE_TITLE,
+                    icon=":material/block:",
+                )
+            elif spec.key in tables:
+                st.badge(
+                    pattern_label(interpretations[spec.key]),
+                    color=badge_colour(interpretations[spec.key]),
+                )
+            else:
+                st.caption("Enter values to classify.")
+            if spec.caveat:
+                st.caption(spec.caveat)
+    summary = classification_summary(interpretations)
+    if summary:
+        st.markdown(summary)
 
 # 2. Where each value sits against the references.
 with st.container(border=True):
     st.subheader("Z-scores by equation")
+    screen_chart = comparison_chart(named_tables)
     if screen_chart is not None:
         st.altair_chart(screen_chart, width="stretch", alt=CHART_ALT)
-        if not_plotted_caption(family_tables):
-            st.caption(not_plotted_caption(family_tables))
+        if not_plotted:
+            st.caption(not_plotted)
+    elif inputs_ready:
+        st.caption(not_plotted)
     else:
         st.caption("Enter values to draw the comparison chart.")
-    notes = comparison_notes(results["gli_2012"], results["gli_2022"])
-    if notes is None:
-        st.caption("Enter values to compare equations.")
-    elif not notes:
-        st.caption(f"{AGREE_TEXT} {AGREE_NOTE}")
-    else:
-        st.markdown("Classification differs between the GLI equations for:")
-        st.markdown("\n".join(f"- {note}" for note in notes))
-
-# 3. The numbers behind it.
-st.subheader("Reference values")
-for column, (key, title, subtitle) in zip(st.columns(3), CARDS):
-    with column, st.container(border=True):
-        st.markdown(title)
-        st.caption(subtitle)
-        if messages[key] is not None:
-            st.warning(
-                messages[key],
-                title="Not available for these inputs",
-                icon=":material/block:",
-            )
-        elif results[key] is None:
-            st.caption("Enter values to compute results.")
+    if both_gli:
+        notes = comparison_notes(tables.get("gli_2012"), tables.get("gli_2022"))
+        if notes is None:
+            st.caption("Enter values to compare the GLI equations.")
+        elif not notes:
+            st.caption(f"{AGREE_TEXT} {AGREE_NOTE}")
         else:
+            st.markdown("Classification differs between the GLI equations for:")
+            st.markdown("\n".join(f"- {note}" for note in notes))
+
+# 3. The numbers behind it: one table for each parameter.
+st.subheader("Reference values")
+if tables:
+    frames = matrix_frames({spec.name: tables.get(spec.key) for spec in specs})
+    observed = {"FEV1": f"{fev1:.2f} L", "FVC": f"{fvc:.2f} L", "FEV1/FVC": f"{fev1 / fvc:.2f}"}
+    for tab, (title, frame) in zip(st.tabs(list(frames)), frames.items()):
+        with tab:
+            st.caption(f"Observed {title}: {observed[title]}")
             st.table(
-                results_for_display(results[key]),
+                markdown_cells(frame).reset_index(),
                 hide_index=True,
-                alt=f"{title} reference values for FEV1, FVC and FEV1/FVC.",
+                alt=f"{title} predicted value, lower limit, z-score and percent "
+                "of predicted for each selected equation.",
             )
-if any(table is not None and (table["z_score"] < LLN_Z).any() for table in results.values()):
-    st.caption(BELOW_LLN_NOTE)
+    st.caption(MATRIX_LEGEND)
+elif inputs_ready:
+    st.caption("No selected equation covers these inputs.")
+else:
+    st.caption("Enter values to compute results.")
+
+with st.expander("Equation notes", icon=":material/menu_book:"):
+    for spec in specs:
+        low, high = spec.age_range
+        st.markdown(spec.name)
+        st.caption(
+            f"{spec.citation}. {spec.population.rstrip('.')}. "
+            f"Age range: {low:g} to {high:g} years."
+        )
+        if spec.caveat:
+            st.caption(spec.caveat)
 
 with st.expander("How to read this page", icon=":material/info:"):
     st.markdown(
@@ -257,7 +315,9 @@ with st.expander("How to read this page", icon=":material/info:"):
         "Severity uses the FEV1 z-score: mild from -2.5 upward, moderate from "
         "-2.5 to -4.0, severe below -4.0.\n\n"
         "Restrictive and mixed patterns are suggestive only. Confirming them "
-        "needs static lung volumes, which Quadrant does not accept."
+        "needs static lung volumes, which Quadrant does not accept.\n\n"
+        "An equation without a lower limit gives no z-score, so its result "
+        "is not classified."
     )
 
 st.caption(DISCLAIMER_TEXT)

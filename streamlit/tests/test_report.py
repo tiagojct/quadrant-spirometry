@@ -66,3 +66,23 @@ def test_report_escapes_subject_labels():
     bundle = _bundle()
     bundle["subject"] = {**SUBJECT, "sex_label": "<b>x</b>"}
     assert "<b>x</b>" not in render_report_html(bundle)
+
+
+def test_report_has_one_block_for_each_given_equation():
+    from quadrant.wrappers import compute_eccs_1993, compute_kubota_2014
+
+    results = {
+        "gli_2012": compute_gli_2012(40, 170, 1, 1, 2.7, 4.0),
+        "kubota_2014": compute_kubota_2014(40, 170, 1, 2.7, 4.0),
+        "eccs_1993": compute_eccs_1993(40, 170, 1, 2.7, 4.0),
+    }
+    interpretations = {k: interpret_spirometry(v) for k, v in results.items()}
+    bundle = prepare_report_bundle(
+        SUBJECT, results, interpretations, "", "",
+        timestamp=datetime(2026, 11, 5, 12, 0, tzinfo=timezone.utc),
+    )
+    assert [b["name"] for b in bundle["family_blocks"]] == [
+        "GLI-2012", "Kubota 2014 (JRS)", "ECCS/Quanjer 1993"]
+    html = render_report_html(bundle)
+    assert "Not classified" in html
+    assert "nan" not in html.lower()

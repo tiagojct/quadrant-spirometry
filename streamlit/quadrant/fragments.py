@@ -12,6 +12,7 @@ from html import escape
 import pandas as pd
 
 from .constants import LLN_Z
+from .registry import EQUATIONS
 
 # Badge colours per severity level; "normal" is used when there is no
 # severity. Visual emphasis only, no diagnostic semantics.
@@ -237,13 +238,6 @@ def render_gli_comparison(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.Data
     return f"<div><p>Classification differs for:</p><ul>{items}</ul></div>"
 
 
-FAMILY_NAMES = {
-    "gli_2012": "GLI-2012",
-    "gli_2022": "GLI-Global 2022",
-    "nhanes3": "NHANES III",
-}
-
-
 def short_label(interpretation: dict) -> str:
     """Short classification such as "obstructive \u00b7 moderate" or "normal"."""
     severity = interpretation["severity"]
@@ -256,12 +250,14 @@ def short_label(interpretation: dict) -> str:
 def classification_summary(interpretations: dict) -> str | None:
     """One sentence on whether the equations give the same classification.
 
-    Equations without a classification are skipped. Returns None when
+    interpretations is keyed by registry key; the sentence uses the
+    registry names. Equations without a classification are skipped.
+    Returns None when
     fewer than two equations have a result. When the
     equations differ, the sentence names each one.
     """
     available = {
-        FAMILY_NAMES[key]: value
+        EQUATIONS[key].name: value
         for key, value in interpretations.items()
         if value is not None and value["pattern"] is not None
     }

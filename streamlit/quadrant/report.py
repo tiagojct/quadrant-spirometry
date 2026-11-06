@@ -16,15 +16,11 @@ from .fragments import (
     render_interpretation,
     render_pattern_badge,
 )
+from .registry import EQUATIONS
 from .styles import BASE_CSS
 
-# Display name, citation line and result key for each family, in the
-# order shown on screen.
-FAMILIES = (
-    ("GLI-2012", "Quanjer et al., ERJ 2012", "gli_2012"),
-    ("GLI-Global 2022 (race-neutral)", "Bowerman et al., AJRCCM 2023", "gli_2022"),
-    ("NHANES III", "Hankinson et al., AJRCCM 1999", "nhanes3"),
-)
+# Report names that differ from the registry name.
+REPORT_NAMES = {"gli_2022": "GLI-Global 2022 (race-neutral)"}
 
 
 def prepare_report_bundle(
@@ -35,13 +31,19 @@ def prepare_report_bundle(
     comparison_html: str,
     timestamp: datetime | None = None,
 ) -> dict:
-    """Collect everything the report needs, with HTML pre-rendered."""
+    """Collect everything the report needs, with HTML pre-rendered.
+
+    results and interpretations are keyed by registry key. The report has
+    one block for each key in results, in the order given; a key with no
+    table (None) gets a block that says so.
+    """
     blocks = []
-    for name, subtitle, key in FAMILIES:
+    for key in results:
+        spec = EQUATIONS[key]
         blocks.append(
             {
-                "name": name,
-                "subtitle": subtitle,
+                "name": REPORT_NAMES.get(key, spec.name),
+                "subtitle": spec.citation,
                 "badge_html": render_pattern_badge(interpretations.get(key)),
                 "table_html": reference_table_html(results.get(key)),
                 "interpretation_html": render_interpretation(interpretations.get(key)),
