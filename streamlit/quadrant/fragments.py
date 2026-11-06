@@ -11,6 +11,7 @@ from html import escape
 
 import pandas as pd
 
+from .charts import PARAMETER_LABELS
 from .constants import LLN_Z
 from .registry import EQUATIONS
 
@@ -184,7 +185,7 @@ def comparison_notes(gli_2012_df: pd.DataFrame | None, gli_2022_df: pd.DataFrame
         return "below LLN" if below else "within LLN"
 
     return [
-        f'{gli_2012_df["parameter"].iloc[i]}: GLI-2012 z = '
+        f'{PARAMETER_LABELS[gli_2012_df["parameter"].iloc[i]]}: GLI-2012 z = '
         f'{gli_2012_df["z_score"].iloc[i]:.2f} ({side(below_2012[i])}); '
         f'GLI-Global 2022 z = {gli_2022_df["z_score"].iloc[i]:.2f} '
         f"({side(below_2022[i])})."

@@ -15,7 +15,7 @@ from .constants import (
     SEVERITY_MODERATE_Z_MIN,
     SPIROMETRY_PARAMS,
 )
-from .charts import LEGEND_COLUMNS, _has_finite_z, style_for
+from .charts import LEGEND_COLUMNS, PARAMETER_LABELS, _has_finite_z, style_for
 
 Z_AXIS_MIN = -5
 Z_AXIS_MAX = 3
@@ -152,7 +152,7 @@ def cross_family_chart_svg(family_tables: dict) -> str:
         label = (
             f'<text x="{pad_left - 12:.2f}" y="{y + row_height / 2 + 6:.2f}" '
             'font-size="16" text-anchor="end" fill="#0f172a" '
-            f'font-weight="700">{parameter}</text>'
+            f'font-weight="700">{PARAMETER_LABELS[parameter]}</text>'
         )
         markers = []
         for j, (family, df) in enumerate(active.items()):

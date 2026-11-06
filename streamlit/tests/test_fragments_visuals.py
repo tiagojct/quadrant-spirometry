@@ -240,3 +240,10 @@ def test_eight_legend_markers_sit_on_two_rows_with_distinct_shapes():
     assert len({x for x, _ in labels}) == 4
     polygons = re.findall(r'<polygon[^>]*class="legend-marker"[^>]*>', svg)
     assert len(set(polygons)) == len(polygons) == 6
+
+
+def test_the_ratio_is_labelled_fev1_fvc_in_the_notes_and_the_svg():
+    notes = comparison_notes(_table([0, 0, -1.0]), _table([0, 0, -2.0]))
+    assert len(notes) == 1 and notes[0].startswith("FEV1/FVC: GLI-2012 z = -1.00")
+    svg = cross_family_chart_svg({"GLI-2012": _table([0, 0, -1.0])})
+    assert ">FEV1/FVC</text>" in svg and ">FEV1FVC<" not in svg
