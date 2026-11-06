@@ -1,0 +1,472 @@
+"""Tests for the HTML fragments and the SVG chart."""
+
+import pandas as pd
+
+from quadrant.constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN
+from quadrant.fragments import (
+    AGREE_NOTE,
+    AGREE_TEXT,
+    DIFFER_HEADING,
+    badge_colour,
+    classification_summary,
+    comparison_notes,
+    input_problem,
+    pattern_label,
+    render_gli_comparison,
+    render_interpretation,
+    render_pattern_badge,
+)
+from quadrant.visuals import (
+    SEVERITY_BANDS,
+    Z_AXIS_MAX,
+    Z_AXIS_MIN,
+    cross_family_chart_svg,
+    is_svg,
+    z_to_x,
+)
+
+
+def _table(z):
+    return pd.DataFrame(
+        {
+            "parameter": ["FEV1", "FVC", "FEV1FVC"],
+            "observed": [3.0, 4.0, 0.75],
+            "predicted": [3.5, 4.5, 0.8],
+            "lln": [2.8, 3.6, 0.7],
+            "z_score": z,
+            "percent_predicted": [85.0, 90.0, 94.0],
+        }
+    )
+
+
+def test_input_problem_is_silent_for_usable_or_missing_values():
+    assert input_problem(3.0, 4.0) is None
+    assert input_problem(4.0, 4.0) is None
+    assert input_problem(None, 4.0) is None
+    assert input_problem(3.0, float("nan")) is None
+
+
+def test_input_problem_explains_unusable_values():
+    assert "FEV1 is larger than FVC" in input_problem(5.0, 4.0)
+    assert "greater than zero" in input_problem(0, 4.0)
+    assert "greater than zero" in input_problem(3.0, -1)
+
+
+def test_pattern_label_is_descriptive():
+    assert pattern_label({"pattern": "normal", "severity": None}) == "Pattern consistent with normal"
+    assert pattern_label({"pattern": "obstructive", "severity": "severe"}) == (
+        "Pattern consistent with obstructive \u00b7 severe")
+    assert pattern_label({"pattern": "mixed pattern (suggestive)", "severity": "moderate"}) == (
+        "Consistent with mixed pattern (suggestive) \u00b7 moderate")
+
+
+def test_badge_colour_follows_severity():
+    colours = [badge_colour({"pattern": "x", "severity": s}) for s in (None, "mild", "moderate", "severe")]
+    assert colours == ["green", "yellow", "orange", "red"]
+
+
+def test_comparison_notes_cover_missing_agreeing_and_flipped_tables():
+    assert comparison_notes(None, _table([0, 0, 0])) is None
+    assert comparison_notes(_table([0, 0, 0]), _table([0, 0, 0])) == []
+    notes = comparison_notes(_table([-1.0, 0, 0]), _table([-2.0, 0, 0]))
+    assert len(notes) == 1 and notes[0].startswith("FEV1: GLI-2012 z = -1.00 (within LLN)")
+
+
+def test_badge_wording_is_descriptive():
+    normal = render_pattern_badge({"pattern": "normal", "severity": None})
+    assert "Pattern consistent with normal" in normal
+    severe = render_pattern_badge({"pattern": "obstructive", "severity": "severe"})
+    assert "Pattern consistent with obstructive" in severe and "· severe" in severe
+    mixed = render_pattern_badge({"pattern": "mixed pattern (suggestive)", "severity": "moderate"})
+    assert "Consistent with mixed pattern (suggestive)" in mixed
+    assert "Pattern consistent with mixed" not in mixed
+    assert "Enter values" in render_pattern_badge(None)
+
+
+def test_interpretation_block_for_normal_and_impaired():
+    assert "not graded" in render_interpretation({"pattern": "normal", "severity": None})
+    assert "moderate" in render_interpretation({"pattern": "obstructive", "severity": "moderate"})
+    assert "Enter values" in render_interpretation(None)
+
+
+def test_gli_comparison_reports_a_flip():
+    agree = render_gli_comparison(_table([0, 0, 0]), _table([0, 0, 0]))
+    assert AGREE_TEXT in agree and AGREE_NOTE in agree
+    assert "same side" in agree
+    flip = render_gli_comparison(_table([-1.0, 0, 0]), _table([-2.0, 0, 0]))
+    assert DIFFER_HEADING in flip and "FEV1" in flip
+    assert "Classification" not in flip
+    assert "Enter values" in render_gli_comparison(None, _table([0, 0, 0]))
+
+
+def test_z_to_x_maps_axis_ends_and_clamps():
+    assert z_to_x(Z_AXIS_MIN, 100, 800) == 100
+    assert z_to_x(Z_AXIS_MAX, 100, 800) == 900
+    assert z_to_x(Z_AXIS_MIN - 10, 100, 800) == 100
+    assert z_to_x(Z_AXIS_MAX + 10, 100, 800) == 900
+
+
+def test_severity_bands_cover_the_axis_and_match_the_cut_offs():
+    los = [b["z_lo"] for b in SEVERITY_BANDS]
+    his = [b["z_hi"] for b in SEVERITY_BANDS]
+    assert los[0] == Z_AXIS_MIN and his[-1] == Z_AXIS_MAX
+    assert los[1:] == his[:-1]
+    assert {SEVERITY_MODERATE_Z_MIN, SEVERITY_MILD_Z_MIN, LLN_Z} <= set(his)
+    assert [b["label"] for b in SEVERITY_BANDS] == ["severe", "moderate", "mild", "normal"]
+
+
+def test_chart_draws_one_marker_per_family_and_parameter():
+    svg = cross_family_chart_svg(
+        {"GLI-2012": _table([-1, -2, -3]), "GLI-Global 2022": _table([-1, -2, -3]),
+         "NHANES III": _table([0, 0, 0])}
+    )
+    assert svg.startswith("<svg") and is_svg(svg)
+    for family in ("GLI-2012", "GLI-Global 2022", "NHANES III"):
+        assert family in svg
+    assert svg.count('class="marker"') == 9
+    assert svg.count('class="legend-marker"') == 3
+
+
+def test_chart_skips_families_without_results():
+    svg = cross_family_chart_svg({"GLI-2012": _table([-1, -2, -3]), "NHANES III": None})
+    assert "NHANES III" not in svg and "GLI-2012" in svg
+
+
+def test_chart_returns_a_prompt_without_results():
+    out = cross_family_chart_svg({"GLI-2012": None, "NHANES III": None})
+    assert "Enter values" in out and not is_svg(out)
+
+
+def _interp(pattern, severity=None):
+    return {"pattern": pattern, "severity": severity}
+
+
+def test_classification_summary_agree_differ_and_missing():
+    same = {"gli_2012": _interp("normal"), "gli_2022": _interp("normal"), "nhanes3": _interp("normal")}
+    assert classification_summary(same) == "The equations agree on the classification."
+    two = {"gli_2012": _interp("normal"), "gli_2022": _interp("normal"), "nhanes3": None}
+    assert classification_summary(two) == "The equations agree on the classification."
+    differ = {
+        "gli_2012": _interp("obstructive", "severe"),
+        "gli_2022": _interp("obstructive", "moderate"),
+        "nhanes3": _interp("obstructive", "severe"),
+    }
+    text = classification_summary(differ)
+    assert text.startswith("The equations differ in classification.")
+    assert "GLI-Global 2022: obstructive \u00b7 moderate" in text
+    assert classification_summary({"gli_2012": _interp("normal"), "gli_2022": None, "nhanes3": None}) is None
+
+
+UNCLASSIFIED = {"pattern": None, "severity": None}
+
+
+def test_pattern_label_for_an_unclassified_result():
+    assert pattern_label(UNCLASSIFIED) == "Not classified (no lower limit and no z-score for this equation)"
+
+
+def test_badge_colour_is_gray_when_not_classified():
+    assert badge_colour(UNCLASSIFIED) == "gray"
+
+
+def test_unclassified_results_render_and_are_named_in_the_summary():
+    assert "Not classified" in render_pattern_badge(UNCLASSIFIED)
+    assert "Not classified" in render_interpretation(UNCLASSIFIED)
+    assert (
+        "This equation gives no lower limit and no z-score, so the result is "
+        "not classified." in render_interpretation(UNCLASSIFIED)
+    )
+    assert "This equation gives no z-score, so" not in render_interpretation(UNCLASSIFIED)
+    normal = {"pattern": "normal", "severity": None}
+    assert (
+        classification_summary({"gli_2012": normal, "gli_2022": UNCLASSIFIED})
+        == "Only GLI-2012 is classified. Not classified: GLI-Global 2022."
+    )
+
+
+def test_agreement_texts_do_not_contradict_each_other():
+    # The GLI notes speak of the lower limit; only the summary sentence
+    # uses the word classification.
+    assert AGREE_TEXT.startswith("GLI-2012 and GLI-Global 2022 put every parameter")
+    assert AGREE_NOTE == "Their z-scores still differ, so the severity grade can differ."
+    assert DIFFER_HEADING == (
+        "GLI-2012 and GLI-Global 2022 put these parameters on different sides "
+        "of the lower limit of normal:"
+    )
+    for text in (AGREE_TEXT, AGREE_NOTE, DIFFER_HEADING):
+        assert "classif" not in text.lower()
+
+
+def test_classification_summary_names_unclassified_equations():
+    gli = _interp("obstructive", "moderate")
+    eccs = UNCLASSIFIED
+    # ECCS plus GLI-2012: one classified equation, so no agreement claim.
+    text = classification_summary({"gli_2012": gli, "eccs_1993": eccs})
+    assert text == "Only GLI-2012 is classified. Not classified: ECCS/Quanjer 1993."
+    assert "agree" not in text
+    # Only ECCS: one result, nothing to compare; the card says not classified.
+    assert classification_summary({"eccs_1993": eccs}) is None
+    # Pereira plus ECCS: no equation is classified.
+    text = classification_summary({"pereira_2007": UNCLASSIFIED, "eccs_1993": eccs})
+    assert text == (
+        "No equation is classified. "
+        "Not classified: Pereira 2007 (Brazil), ECCS/Quanjer 1993."
+    )
+    assert "agree" not in text
+    # Two classified equations and one without a classification.
+    both = {"gli_2012": gli, "gli_2022": gli, "eccs_1993": eccs}
+    assert classification_summary(both) == (
+        "The classified equations agree on the classification. "
+        "Not classified: ECCS/Quanjer 1993."
+    )
+    differ = {"gli_2012": gli, "gli_2022": _interp("normal"), "pereira_2007": UNCLASSIFIED}
+    assert classification_summary(differ) == (
+        "The classified equations differ in classification. "
+        "GLI-2012: obstructive \u00b7 moderate; GLI-Global 2022: normal. "
+        "Not classified: Pereira 2007 (Brazil)."
+    )
+
+
+# Equations without a z-score or without a lower limit give NaN in those
+# columns. The display helpers show a hyphen, never the text "nan", and
+# never the below-LLN asterisk for a missing z-score.
+def _eccs_and_pereira_tables():
+    from quadrant.wrappers import compute_eccs_1993, compute_pereira_2007
+
+    return (
+        compute_eccs_1993(40, 170, 1, 3.0, 4.0),
+        compute_pereira_2007(40, 170, 1, 3.0, 4.0),
+    )
+
+
+def test_reference_table_html_shows_a_hyphen_for_missing_limits():
+    from quadrant.fragments import reference_table_html
+
+    eccs, pereira = _eccs_and_pereira_tables()
+    html = reference_table_html(eccs)
+    assert "nan" not in html.lower()
+    assert "<td>-</td>" in html
+    html = reference_table_html(pereira)
+    assert "nan" not in html.lower()
+    for value in pereira["lln"]:
+        assert f"<td>{value:.2f}</td>" in html
+
+
+def test_interpretation_fragments_have_no_nan_text_for_either_table():
+    from quadrant.interpretation import interpret_spirometry
+
+    for table in _eccs_and_pereira_tables():
+        result = interpret_spirometry(table)
+        for html in (render_interpretation(result), render_pattern_badge(result)):
+            assert "nan" not in html.lower()
+
+
+def test_svg_has_one_marker_per_equation_and_parameter_for_six_equations():
+    nan = float("nan")
+    tables = {f"Eq {i}": _table([-1, -2, -3]) for i in range(5)}
+    tables["Eq 5"] = _table([-1, nan, nan])
+    svg = cross_family_chart_svg(tables)
+    assert svg.count('class="marker"') == 5 * 3 + 1
+    assert svg.count('class="legend-marker"') == 6
+    assert "nan" not in svg.lower()
+    for i in range(6):
+        assert f"Eq {i}" in svg
+
+
+def test_all_nan_equation_has_no_legend_entry_or_lane():
+    nan = float("nan")
+    svg = cross_family_chart_svg({"A": _table([-1, -2, -3]), "Empty": _table([nan, nan, nan])})
+    assert "Empty" not in svg
+    assert svg.count('class="legend-marker"') == 1
+
+
+def test_eight_legend_markers_sit_on_two_rows_with_distinct_shapes():
+    import re
+
+    svg = cross_family_chart_svg({f"Eq {i}": _table([-1, -2, -3]) for i in range(8)})
+    tags = re.findall(r'<(circle|rect|polygon)[^>]*class="legend-marker"', svg)
+    assert len(tags) == 8
+    labels = re.findall(r'<text x="([\d.]+)" y="([\d.]+)"[^>]*font-weight="600">Eq \d', svg)
+    assert len(labels) == 8
+    assert len({y for _, y in labels}) == 2
+    assert len({x for x, _ in labels}) == 4
+    polygons = re.findall(r'<polygon[^>]*class="legend-marker"[^>]*>', svg)
+    assert len(set(polygons)) == len(polygons) == 6
+
+
+def test_the_ratio_is_labelled_fev1_fvc_in_the_notes_and_the_svg():
+    notes = comparison_notes(_table([0, 0, -1.0]), _table([0, 0, -2.0]))
+    assert len(notes) == 1 and notes[0].startswith("FEV1/FVC: GLI-2012 z = -1.00")
+    svg = cross_family_chart_svg({"GLI-2012": _table([0, 0, -1.0])})
+    assert ">FEV1/FVC</text>" in svg and ">FEV1FVC<" not in svg
+
+
+def test_each_svg_z_label_is_drawn_once_over_a_white_rect():
+    import re
+
+    from quadrant.charts import LABEL_HALO
+
+    svg = cross_family_chart_svg({"GLI-2012": _table([-1.0, -2.0, -3.0])})
+    for value in ("-1.00", "-2.00", "-3.00"):
+        assert len(re.findall(rf"<text[^>]*>{re.escape(value)}</text>", svg)) == 1
+        backing = re.search(rf"<rect ([^>]*)/><text[^>]*>{re.escape(value)}</text>", svg)
+        assert backing, value
+        attrs = backing.group(1)
+        assert 'fill="#ffffff"' in attrs and 'rx="2"' in attrs
+        assert f'fill-opacity="{LABEL_HALO["strokeOpacity"]}"' in attrs
+        width = float(re.search(r'width="([\d.]+)"', attrs).group(1))
+        assert width >= len(value) * 0.6 * 12
+    assert "paint-order" not in svg
+
+
+# Results classified from observed values against a published lower limit
+# (Pereira 2007): the label, colour and summary state the basis, and
+# severity is not graded.
+
+def _by_limit(pattern):
+    return {"pattern": pattern, "severity": None, "basis": "lower limit"}
+
+
+def test_pattern_label_states_the_lower_limit_basis():
+    from quadrant.fragments import LOWER_LIMIT_SUFFIX
+
+    assert LOWER_LIMIT_SUFFIX == ", by lower limit"
+    assert pattern_label(_by_limit("obstructive")) == (
+        "Pattern consistent with obstructive, by lower limit")
+    assert pattern_label(_by_limit("normal")) == "Pattern consistent with normal, by lower limit"
+    assert pattern_label(_by_limit("mixed pattern (suggestive)")) == (
+        "Consistent with mixed pattern (suggestive), by lower limit")
+    for pattern in ("obstructive", "normal"):
+        assert "·" not in pattern_label(_by_limit(pattern))
+    # The z-score labels do not change.
+    z = {"pattern": "obstructive", "severity": "mild", "basis": "z-score"}
+    assert pattern_label(z) == "Pattern consistent with obstructive · mild"
+
+
+def test_basis_note_for_each_basis():
+    from quadrant.fragments import LOWER_LIMIT_NOTE, SEVERITY_NOT_GRADED_TEXT, basis_note
+
+    assert SEVERITY_NOT_GRADED_TEXT == "Severity not graded (no z-score for this equation)"
+    assert LOWER_LIMIT_NOTE == (
+        "Pattern from observed values against the published lower limit. "
+        "Severity not graded (no z-score for this equation)."
+    )
+    assert basis_note(_by_limit("obstructive")) == LOWER_LIMIT_NOTE
+    assert basis_note(_by_limit("normal")) == LOWER_LIMIT_NOTE
+    assert basis_note({"pattern": "normal", "severity": None, "basis": "z-score"}) is None
+    assert basis_note(UNCLASSIFIED) is None
+
+
+def test_badge_colour_for_a_result_by_lower_limit():
+    # Green only for normal; an ungraded pattern below the limit is not green.
+    assert badge_colour(_by_limit("normal")) == "green"
+    for pattern in ("obstructive", "non-specific", "mixed pattern (suggestive)"):
+        assert badge_colour(_by_limit(pattern)) == "blue"
+
+
+def test_report_fragments_for_a_result_by_lower_limit():
+    from quadrant.fragments import BADGE_PALETTE
+
+    badge = render_pattern_badge(_by_limit("obstructive"))
+    assert "Pattern consistent with obstructive, by lower limit" in badge
+    bg, fg = BADGE_PALETTE["ungraded"]
+    assert f"background:{bg};color:{fg};" in badge
+    assert BADGE_PALETTE["ungraded"] != BADGE_PALETTE["normal"]
+    block = render_interpretation(_by_limit("obstructive"))
+    assert "obstructive" in block
+    assert "observed values against the published lower limit" in block
+    assert "not graded (no z-score for this equation)" in block
+    assert "pattern is normal" not in block
+    assert "Not classified" not in block
+
+
+def test_summary_states_the_basis_when_bases_differ():
+    gli = {"pattern": "obstructive", "severity": "moderate", "basis": "z-score"}
+    text = classification_summary({"gli_2012": gli, "pereira_2007": _by_limit("obstructive")})
+    assert text == (
+        "The equations give the same pattern. "
+        "GLI-2012: obstructive · moderate; Pereira 2007 (Brazil): obstructive. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade."
+    )
+    assert "agree on the classification" not in text
+    normal = {"pattern": "normal", "severity": None, "basis": "z-score"}
+    text = classification_summary({"gli_2012": normal, "pereira_2007": _by_limit("obstructive")})
+    assert text == (
+        "The equations give different patterns. "
+        "GLI-2012: normal; Pereira 2007 (Brazil): obstructive. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade."
+    )
+
+
+def test_summary_with_pereira_and_an_unclassified_equation():
+    text = classification_summary({"pereira_2007": _by_limit("normal"), "eccs_1993": UNCLASSIFIED})
+    assert text == (
+        "Only Pereira 2007 (Brazil) is classified, from observed values against "
+        "the published lower limit. Not classified: ECCS/Quanjer 1993."
+    )
+    gli = {"pattern": "normal", "severity": None, "basis": "z-score"}
+    text = classification_summary(
+        {"gli_2012": gli, "gli_2022": gli, "pereira_2007": _by_limit("normal"),
+         "eccs_1993": UNCLASSIFIED})
+    assert text == (
+        "The classified equations give the same pattern. "
+        "GLI-2012: normal; GLI-Global 2022: normal; Pereira 2007 (Brazil): normal. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade. "
+        "Not classified: ECCS/Quanjer 1993."
+    )
+
+
+def test_pereira_fragments_from_real_tables_have_no_nan_text():
+    from quadrant.interpretation import interpret_spirometry
+    from quadrant.wrappers import compute_pereira_2007
+
+    for fev1 in (2.7, 3.5):
+        result = interpret_spirometry(compute_pereira_2007(40, 170, 1, fev1, 4.5))
+        assert result["basis"] == "lower limit"
+        for text in (pattern_label(result), render_interpretation(result),
+                     render_pattern_badge(result)):
+            assert "nan" not in text.lower()
+
+
+def test_comparison_notes_use_the_shared_below_rule():
+    # -1.6450000000000002 equals the limit up to rounding error: within LLN,
+    # as in classify_pattern. Strict "<" would call it below and flip.
+    notes = comparison_notes(_table([-1.6450000000000002, 0, 0]), _table([-1.0, 0, 0]))
+    assert notes == []
+    notes = comparison_notes(_table([-1.646, 0, 0]), _table([-1.0, 0, 0]))
+    assert len(notes) == 1 and "(below LLN)" in notes[0]
+
+
+def test_summary_with_a_limit_result_says_when_z_score_severities_differ():
+    from quadrant.fragments import SEVERITY_DIFFERS_TEXT
+
+    assert SEVERITY_DIFFERS_TEXT == "Severity differs among the z-score equations."
+    mild = {"pattern": "obstructive", "severity": "mild", "basis": "z-score"}
+    moderate = {"pattern": "obstructive", "severity": "moderate", "basis": "z-score"}
+    pereira = _by_limit("obstructive")
+    text = classification_summary(
+        {"gli_2012": mild, "nhanes3": moderate, "pereira_2007": pereira})
+    assert text == (
+        "The equations give the same pattern. "
+        "GLI-2012: obstructive · mild; NHANES III: obstructive · moderate; "
+        "Pereira 2007 (Brazil): obstructive. "
+        "Severity differs among the z-score equations. "
+        "Pereira 2007 (Brazil) is classified from observed values against the "
+        "published lower limit, with no severity grade."
+    )
+    # Same severity: no sentence.
+    same = classification_summary({"gli_2012": mild, "gli_2022": mild, "pereira_2007": pereira})
+    assert SEVERITY_DIFFERS_TEXT not in same
+    # One z-score equation only: nothing to compare.
+    one = classification_summary({"gli_2012": mild, "pereira_2007": pereira})
+    assert SEVERITY_DIFFERS_TEXT not in one
+    # An unclassified or rejected equation does not count.
+    other = classification_summary(
+        {"gli_2012": mild, "nhanes3": None, "eccs_1993": UNCLASSIFIED, "pereira_2007": pereira})
+    assert SEVERITY_DIFFERS_TEXT not in other
+    # Without a limit-based result the z-score sentences are unchanged.
+    z_only = classification_summary({"gli_2012": mild, "nhanes3": moderate})
+    assert z_only.startswith("The equations differ in classification.")
+    assert SEVERITY_DIFFERS_TEXT not in z_only

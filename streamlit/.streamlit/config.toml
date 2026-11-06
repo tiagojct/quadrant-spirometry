@@ -1,0 +1,55 @@
+# Quadrant theme. Colours and fonts live here, not in CSS.
+# Light: chart paper and ink, dark brass for the selected state.
+# Dark: night watch with brass.
+# License: AGPL-3.0-or-later
+
+[browser]
+# The app collects no analytics.
+gatherUsageStats = false
+
+[server]
+# Serves static/ at /app/static/. The fonts are self-hosted.
+enableStaticServing = true
+
+[theme]
+# The family name is quoted: a CSS family name with a word that starts
+# with a digit is invalid unquoted, and the browser then drops the rule.
+font = "'Source Sans 3', sans-serif"
+headingFont = "'Source Sans 3', sans-serif"
+baseFontSize = 16
+# Title, section, card.
+headingFontSizes = ["2.6rem", "1.6rem", "1.2rem"]
+headingFontWeights = 600
+baseRadius = "0.4rem"
+showWidgetBorder = true
+
+[[theme.fontFaces]]
+family = "'Source Sans 3'"
+url = "app/static/fonts/SourceSans3-Regular.woff2"
+weight = "400"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "'Source Sans 3'"
+url = "app/static/fonts/SourceSans3-Semibold.woff2"
+weight = "600"
+style = "normal"
+
+[theme.light]
+# Dark brass for the selected pills: 5.9:1 on the page, 5.3:1 on the
+# sidebar, 4.6:1 as pill text on its own tint, 6.2:1 under white text.
+# Links stay ink blue.
+primaryColor = "#865709"
+linkColor = "#1c3557"
+backgroundColor = "#fbf9f4"
+secondaryBackgroundColor = "#f1ede3"
+textColor = "#1a2233"
+borderColor = "#d9d2c0"
+
+[theme.dark]
+primaryColor = "#d9b56a"
+linkColor = "#d9b56a"
+backgroundColor = "#0d1522"
+secondaryBackgroundColor = "#16213a"
+textColor = "#ece7da"
+borderColor = "#2c3a57"
