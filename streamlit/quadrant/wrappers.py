@@ -7,6 +7,11 @@ lln, z_score and percent_predicted. One row per parameter, in the order
 of SPIROMETRY_PARAMS. The equations come from the pyspiro package; no
 coefficient is written by hand in this project.
 
+One wrapper changes an input on purpose: compute_eccs_1993 enters an age
+of 25 years for ages 18 to 25, as the ECCS 1993 source says for every
+equation. pyspiro applies this to men only for the flow parameters, so raw
+pyspiro output differs from the wrapper for men under 25.
+
 The functions are pure: no side effects and no Streamlit state.
 """
 

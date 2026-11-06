@@ -181,3 +181,66 @@ def test_unclassified_results_render_and_are_skipped_in_the_summary():
     assert "lower limit" not in render_interpretation(UNCLASSIFIED)
     normal = {"pattern": "normal", "severity": None}
     assert classification_summary({"gli_2012": normal, "gli_2022": UNCLASSIFIED}) is None
+
+
+# Equations without a z-score or without a lower limit give NaN in those
+# columns. The display helpers show a hyphen, never the text "nan", and
+# never the below-LLN asterisk for a missing z-score.
+def _eccs_and_pereira_tables():
+    from quadrant.wrappers import compute_eccs_1993, compute_pereira_2007
+
+    return (
+        compute_eccs_1993(40, 170, 1, 3.0, 4.0),
+        compute_pereira_2007(40, 170, 1, 3.0, 4.0),
+    )
+
+
+def test_results_for_display_shows_a_hyphen_for_missing_limits():
+    eccs, pereira = _eccs_and_pereira_tables()
+    shown = results_for_display(eccs)
+    assert "nan" not in shown.to_string().lower()
+    assert list(shown["LLN"]) == ["-", "-", "-"]
+    assert list(shown["Z-score"]) == ["-", "-", "-"]
+    shown = results_for_display(pereira)
+    assert "nan" not in shown.to_string().lower()
+    assert list(shown["Z-score"]) == ["-", "-", "-"]
+    assert list(shown["LLN"]) == [f"{v:.2f}" for v in pereira["lln"]]
+
+
+def test_reference_table_html_shows_a_hyphen_for_missing_limits():
+    from quadrant.fragments import reference_table_html
+
+    eccs, pereira = _eccs_and_pereira_tables()
+    html = reference_table_html(eccs)
+    assert "nan" not in html.lower()
+    assert "<td>-</td>" in html
+    html = reference_table_html(pereira)
+    assert "nan" not in html.lower()
+    for value in pereira["lln"]:
+        assert f"<td>{value:.2f}</td>" in html
+
+
+def test_missing_z_score_never_gets_the_below_lln_asterisk():
+    nan = float("nan")
+    table = pd.DataFrame(
+        {
+            "parameter": ["FEV1", "FVC", "FEV1FVC"],
+            "observed": [3.0, 4.0, 0.75],
+            "predicted": [3.5, 4.4, 0.8],
+            "lln": [nan, 3.5, nan],
+            "z_score": [nan, -2.0, nan],
+            "percent_predicted": [85.7, 90.9, 93.8],
+        }
+    )
+    shown = results_for_display(table)
+    assert list(shown["Z-score"]) == ["-", "-2.00 *", "-"]
+    assert list(shown["LLN"]) == ["-", "3.50", "-"]
+
+
+def test_interpretation_fragments_have_no_nan_text_for_either_table():
+    from quadrant.interpretation import interpret_spirometry
+
+    for table in _eccs_and_pereira_tables():
+        result = interpret_spirometry(table)
+        for html in (render_interpretation(result), render_pattern_badge(result)):
+            assert "nan" not in html.lower()

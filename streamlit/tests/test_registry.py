@@ -99,7 +99,8 @@ def test_eccs_1993_is_registered_as_a_historical_set():
     assert spec.caveat == (
         "Predicted values and percent of predicted only. No lower limit or "
         "z-score, so the result is not classified. Historical set, kept for "
-        "comparison."
+        "comparison. For men the source gives the ratio as FEV1/VC; it is "
+        "shown here as FEV1/FVC."
     )
     assert "eccs_1993" not in DEFAULT_KEYS
 

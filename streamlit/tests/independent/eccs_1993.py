@@ -13,22 +13,24 @@ https://publications.ersnet.org/content/erj/6/suppl16/5 (full text, Table 6)
 and the scanned PDF of the printed supplement,
 https://publications.ersnet.org/content/erj/6/Suppl_16/5.full.pdf
 (journal page 26, PDF page 22: Table 6; journal page 25, PDF page 21:
-section 5.1). The two give the same values.
+section 5.1; journal page 29: section 6.3). The two give the same values.
 
-Table 6, "Summary equations for lung volumes and ventilatory flows for
-adults aged 18-70 yr":
+Table 6, summary equations for lung volumes and ventilatory flows for
+adults aged 18 to 70 yr:
     predicted = height coefficient * H + age coefficient * A + constant
     H: standing height in metres. A: age in years.
 The signs of the coefficients are part of the printed values.
 
 Age floor: the title of Table 6 carries a footnote, "Between 18 and 25 yr
 substitute 25 yr in the equations". Section 5.1 says: "between 18 and 25 yr
-an age of 25 yr is to be entered into the various equations". The source
-makes no exception by sex or by parameter, so the floor applies to every
-equation here, for men and for women.
+an age of 25 yr is to be entered into the various equations". Section
+6.3 repeats the rule. The source makes no exception by sex or by
+parameter, so the floor applies to every equation here, for men and for
+women.
 
-Height: section 5.1 says "The equations were derived from a height range
-of 1.55-1.95 m in men, and 1.45-1.80 m in women".
+Height: section 5.1 gives the height range of the source data as 1.55 to
+1.95 m in men and 1.45 to 1.80 m in women (the HTML full text says
+females, the scanned print says women). Section 6.3 gives the same ranges.
 
 Ratio: the ratio is in percent, as printed. Table 6 labels the men's row
 "FEV1/VC" and the women's row "FEV1/FVC". Both rows are used here as the
@@ -43,6 +45,7 @@ from __future__ import annotations
 
 # Table 6, men. (height coefficient per metre, age coefficient, constant)
 MALE_FVC = (5.76, -0.026, -4.34)
+# The source prints the unit of this row as l/s, a misprint for litres.
 MALE_FEV1 = (4.30, -0.029, -2.49)
 MALE_FEV1VC_PERCENT = (0.0, -0.18, 87.21)  # printed: FEV1/VC % = -0.18A + 87.21
 

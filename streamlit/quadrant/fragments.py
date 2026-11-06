@@ -132,6 +132,24 @@ def html_table(df: pd.DataFrame) -> str:
     )
 
 
+# Shown in place of a value that the equation does not give (NaN).
+MISSING_VALUE_TEXT = "-"
+
+
+def _number(value, spec: str = ".2f") -> str:
+    """Formatted number, or a hyphen when the value is missing."""
+    if pd.isna(value):
+        return MISSING_VALUE_TEXT
+    return format(value, spec)
+
+
+def _z_text(z) -> str:
+    """Z-score text. A z-score below the LLN ends with an asterisk."""
+    if pd.isna(z):
+        return MISSING_VALUE_TEXT
+    return f"{z:.2f} *" if z < LLN_Z else f"{z:.2f}"
+
+
 def reference_table_html(reference_df: pd.DataFrame | None) -> str:
     """Long-form result table as an HTML fragment (report)."""
     if reference_df is None:
@@ -141,8 +159,8 @@ def reference_table_html(reference_df: pd.DataFrame | None) -> str:
             "Parameter": reference_df["parameter"],
             "Obs.": [f"{v:.2f}" for v in reference_df["observed"]],
             "Pred.": [f"{v:.2f}" for v in reference_df["predicted"]],
-            "LLN": [f"{v:.2f}" for v in reference_df["lln"]],
-            "Z-score": [f"{v:.2f}" for v in reference_df["z_score"]],
+            "LLN": [_number(v) for v in reference_df["lln"]],
+            "Z-score": [_number(v) for v in reference_df["z_score"]],
             "% pred": [f"{v:.1f}" for v in reference_df["percent_predicted"]],
         }
     )
@@ -159,17 +177,15 @@ def results_for_display(reference_df: pd.DataFrame) -> pd.DataFrame:
     The observed values are left out: they are inputs and the same for
     every family. A z-score below the lower limit of normal ends with an
     asterisk. Numbers are rounded to two decimals, percent of predicted
-    to one.
+    to one. A value the equation does not give (NaN) is shown as a
+    hyphen, without an asterisk.
     """
     return pd.DataFrame(
         {
             "Parameter": list(reference_df["parameter"]),
             "Pred.": [f"{v:.2f}" for v in reference_df["predicted"]],
-            "LLN": [f"{v:.2f}" for v in reference_df["lln"]],
-            "Z-score": [
-                f"{z:.2f} *" if z < LLN_Z else f"{z:.2f}"
-                for z in reference_df["z_score"]
-            ],
+            "LLN": [_number(v) for v in reference_df["lln"]],
+            "Z-score": [_z_text(z) for z in reference_df["z_score"]],
             "% pred": [f"{v:.1f}" for v in reference_df["percent_predicted"]],
         }
     )

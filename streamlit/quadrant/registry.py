@@ -219,7 +219,8 @@ _SPECS = (
         caveat=(
             "Predicted values and percent of predicted only. No lower limit or "
             "z-score, so the result is not classified. Historical set, kept for "
-            "comparison."
+            "comparison. For men the source gives the ratio as FEV1/VC; it is "
+            "shown here as FEV1/FVC."
         ),
         compute=_eccs_1993,
     ),
