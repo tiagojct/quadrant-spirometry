@@ -4,15 +4,23 @@ Each equation in `streamlit/quadrant/registry.py` has one row in this table. A t
 
 | key | source checked | how it was checked | date | result | status |
 |---|---|---|---|---|---|
-| gli_2012 | GLI-2012 reference equations, as implemented in rspiro | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
-| gli_2022 | GLI Global 2022 reference equations, as implemented in rspiro | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
-| nhanes3 | NHANES III reference equations, as implemented in rspiro | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
+| gli_2012 | GLI-2012 reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
+| gli_2022 | GLI Global 2022 reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
+| nhanes3 | NHANES III reference equations: Python wrapper compared with rspiro output | R fixtures from rspiro in tests/testthat/fixtures, tested by streamlit/tests/test_wrappers.py | 2026-11-06 | Python output matches the fixtures | verified |
 
 Allowed status values: `verified`, `single source`, `excluded`.
+
+Template for a new row (copy it into the table above):
+
+```
+| key | source checked | how it was checked | date (YYYY-MM-DD) | result | verified / single source / excluded |
+```
 
 ## Policy
 
 An equation is added only when it matches a published source. A set that cannot be checked is excluded and listed here.
+
+For gli_2012, gli_2022 and nhanes3, the published papers are the original source. rspiro is the independent implementation used for the check.
 
 ## How to regenerate the JRS fixtures
 
@@ -22,7 +30,7 @@ Run this command from the repo root, so that .Rprofile activates renv:
 Rscript streamlit/tests/r/make_jrs_fixtures.R
 ```
 
-The script writes tests/testthat/fixtures/jrs_reference_cases.csv. All numbers come from rspiro. The file has 15 cases with 3 rows each (FEV1, FVC, FEV1FVC).
+The script stops if it is not run from the repo root or if any value is NA. The script prints the rspiro version when it runs. Version used for the current fixture: rspiro 0.5. The script writes tests/testthat/fixtures/jrs_reference_cases.csv. All numbers come from rspiro. The file has 15 cases with 3 rows each (FEV1, FVC, FEV1FVC).
 
 ## rspiro arguments
 

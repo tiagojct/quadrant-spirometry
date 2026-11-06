@@ -4,6 +4,11 @@
 # rspiro returns NA for females above age 93, so the oldest female case is 90.
 library(rspiro)
 
+if (!file.exists("tests/testthat/fixtures")) {
+  stop("Run this script from the repo root: Rscript streamlit/tests/r/make_jrs_fixtures.R")
+}
+message("rspiro version: ", as.character(packageVersion("rspiro")))
+
 cases <- data.frame(
   case_id = c(
     "c1_male_30_175", "c2_female_17_160", "c3_male_17_180",
@@ -41,4 +46,5 @@ for (i in seq_len(nrow(cases))) {
   }
 }
 out <- do.call(rbind, rows)
+stopifnot(!anyNA(out))
 write.csv(out, "tests/testthat/fixtures/jrs_reference_cases.csv", row.names = FALSE)
