@@ -5,7 +5,9 @@ License: AGPL-3.0-or-later
 Run with: uv run streamlit run app.py
 
 The app keeps no state between sessions and writes nothing to disk.
-Session state holds only the current inputs and the chosen equations.
+Session state holds only the current inputs, the chosen equations and,
+after "Pin these results", the pinned z-scores with a short summary of
+the pinned inputs.
 Colours and fonts come from .streamlit/config.toml.
 """
 
@@ -25,6 +27,7 @@ from quadrant.constants import (
 )
 from quadrant.fragments import (
     AGREE_NOTE,
+    MISSING_VALUE_TEXT,
     AGREE_TEXT,
     badge_colour,
     classification_summary,
@@ -35,6 +38,7 @@ from quadrant.fragments import (
 )
 from quadrant.interpretation import interpret_spirometry
 from quadrant.matrix import MATRIX_LEGEND, markdown_cells, matrix_frames
+from quadrant.presets import DELTA_COLUMN, PRESETS, delta_frame, pinned_tables
 from quadrant.registry import DEFAULT_KEYS, EQUATIONS, Subject, compute_equation
 from quadrant.report import prepare_report_bundle, render_report_html
 from quadrant.visuals import cross_family_chart_svg
@@ -93,6 +97,55 @@ def keep_one_selected() -> None:
     st.session_state["selection_guard"] = True
 
 
+# Example inputs. The selector writes the input keys in a callback, so
+# the values are in place before the widgets are drawn. Editing an input
+# afterwards puts the selector back to "Custom values" and is not undone.
+CUSTOM = "custom"
+PRESET_KEYS = (CUSTOM, *PRESETS)
+SEX_LABELS = {code: label for label, code in SEX_CODES.items()}
+INPUT_DEFAULTS = {
+    "age_years": 40.0, "height_cm": 170.0, "sex": "Male", "fev1": 3.20, "fvc": 4.00,
+}
+
+
+def preset_label(key: str) -> str:
+    return "Custom values" if key == CUSTOM else PRESETS[key].label
+
+
+def apply_preset() -> None:
+    """Selector callback: write the example values in the input keys."""
+    key = st.session_state.get("preset", CUSTOM)
+    if key == CUSTOM:
+        return
+    preset = PRESETS[key]
+    st.session_state["age_years"] = preset.age_years
+    st.session_state["height_cm"] = preset.height_cm
+    st.session_state["sex"] = SEX_LABELS[preset.sex_code]
+    st.session_state["fev1"] = preset.fev1
+    st.session_state["fvc"] = preset.fvc
+
+
+def mark_custom() -> None:
+    """Input callback: an edited value is no longer the example."""
+    st.session_state["preset"] = CUSTOM
+
+
+def request_pin() -> None:
+    """Pin button callback. The pin is taken later in the run, from the
+    results of the current inputs."""
+    st.session_state["pin_requested"] = True
+
+
+def clear_pin() -> None:
+    st.session_state.pop("pin", None)
+
+
+# The inputs get their start values here, not through value= or
+# default=, so that the callbacks can set them without a conflict.
+for _key, _value in INPUT_DEFAULTS.items():
+    st.session_state.setdefault(_key, _value)
+st.session_state.setdefault("preset", CUSTOM)
+
 # The pills start at the default equations. Callbacks run before this
 # line, so the selection read here is the current one.
 for _group, _ in GROUPS:
@@ -109,22 +162,27 @@ specs = [EQUATIONS[key] for key in selection]
 
 # Sidebar inputs. Each widget has a key so that the tests can set it.
 with st.sidebar:
+    st.selectbox(
+        "Example inputs", PRESET_KEYS, format_func=preset_label,
+        key="preset", on_change=apply_preset,
+    )
+    st.caption("The examples are synthetic values for trying the app. They are not patient data.")
     st.subheader("Subject", icon=":material/person:")
     age_col, height_col = st.columns(2)
     age_years = age_col.number_input(
-        "Age (years)", key="age_years", value=40.0,
+        "Age (years)", key="age_years", on_change=mark_custom,
         min_value=float(GLI_AGE_RANGE_YEARS[0]),
         max_value=float(GLI_AGE_RANGE_YEARS[1]), step=1.0,
         help="Each equation covers its own age range. See the equation notes.",
     )
     height_cm = height_col.number_input(
-        "Height (cm)", key="height_cm", value=170.0,
+        "Height (cm)", key="height_cm", on_change=mark_custom,
         min_value=float(HEIGHT_RANGE_CM[0]),
         max_value=float(HEIGHT_RANGE_CM[1]), step=0.5,
     )
     sex_label = st.segmented_control(
-        "Sex", list(SEX_CODES), default="Male", required=True,
-        key="sex", width="stretch",
+        "Sex", list(SEX_CODES), required=True,
+        key="sex", width="stretch", on_change=mark_custom,
     )
     # One ethnicity selector for each selected equation that uses one.
     # Streamlit drops the value of a widget that is not drawn, so the choice
@@ -145,11 +203,11 @@ with st.sidebar:
     st.subheader("Spirometry", icon=":material/air:")
     fev1_col, fvc_col = st.columns(2)
     fev1 = fev1_col.number_input(
-        "FEV1 (L)", key="fev1", value=3.20,
+        "FEV1 (L)", key="fev1", on_change=mark_custom,
         min_value=0.0, max_value=8.0, step=0.01, format="%.2f",
     )
     fvc = fvc_col.number_input(
-        "FVC (L)", key="fvc", value=4.00,
+        "FVC (L)", key="fvc", on_change=mark_custom,
         min_value=0.0, max_value=10.0, step=0.01, format="%.2f",
     )
     if fvc > 0:
@@ -186,6 +244,26 @@ if inputs_ready:
             tables[spec.key] = table
         except ValueError as error:
             messages[spec.key] = str(error)
+
+# What-if pin: only the z-scores of each equation with a result, keyed by
+# registry key, and a short summary of the inputs for the caption.
+if st.session_state.pop("pin_requested", False) and tables:
+    summary = (
+        f"age {age_years:g} years, height {height_cm:g} cm, {sex_label.lower()}, "
+        f"FEV1 {fev1:.2f} L, FVC {fvc:.2f} L"
+    )
+    summary += "".join(
+        f", {EQUATIONS[key].name} ethnicity {label}"
+        for key, label in ethnicity_labels.items()
+    )
+    st.session_state["pin"] = {
+        "z_scores": {
+            key: {p: float(z) for p, z in zip(table["parameter"], table["z_score"])}
+            for key, table in tables.items()
+        },
+        "inputs": summary,
+    }
+pin = st.session_state.get("pin")
 
 # Chart input keyed by name, with None for an equation without a result.
 named_tables = {spec.name: tables.get(spec.key) for spec in specs}
@@ -293,8 +371,29 @@ with st.container(border=True):
 
 # 3. The numbers behind it: one table for each parameter.
 st.subheader("Reference values")
+with st.container(horizontal=True):
+    st.button(
+        "Pin these results", key="pin_button", icon=":material/push_pin:",
+        on_click=request_pin, disabled=not tables,
+        help="Keep the current z-scores, then change a value to see the change in z.",
+    )
+    st.button(
+        "Clear pin", key="clear_pin", icon=":material/close:",
+        on_click=clear_pin, disabled=pin is None,
+    )
 if tables:
-    frames = matrix_frames({spec.name: tables.get(spec.key) for spec in specs})
+    named_current = {spec.name: tables.get(spec.key) for spec in specs}
+    frames = matrix_frames(named_current)
+    if pin is not None:
+        named_pinned = {
+            EQUATIONS[key].name: table
+            for key, table in pinned_tables(pin["z_scores"]).items()
+        }
+        deltas = delta_frame(named_current, named_pinned)
+        frames = {
+            title: frame.join(deltas[title]).fillna(MISSING_VALUE_TEXT)
+            for title, frame in frames.items()
+        }
     observed = {"FEV1": f"{fev1:.2f} L", "FVC": f"{fvc:.2f} L", "FEV1/FVC": f"{fev1 / fvc:.2f}"}
     for tab, (title, frame) in zip(st.tabs(list(frames)), frames.items()):
         with tab:
@@ -306,6 +405,13 @@ if tables:
                 "of predicted for each selected equation.",
             )
     st.caption(MATRIX_LEGEND)
+    if pin is not None:
+        st.caption(
+            f"Compared with the pinned values: {pin['inputs']}. {DELTA_COLUMN} is "
+            "the current z-score minus the pinned z-score. A hyphen in that "
+            "column means that one of the two z-scores is missing or the "
+            "equation was not pinned."
+        )
 elif inputs_ready:
     st.caption("No selected equation covers these inputs.")
 else:

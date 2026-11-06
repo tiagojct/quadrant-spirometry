@@ -129,10 +129,12 @@ def test_six_equations_render_without_an_exception():
 
 
 def test_an_ethnicity_selector_appears_for_each_selected_equation_with_ethnicities():
-    keys = {s.key for s in _run().selectbox}
-    assert keys == {"ethnicity_gli_2012", "ethnicity_nhanes3"}
-    keys = {s.key for s in _run(equations=["gli_2022", "kubota_2014"]).selectbox}
-    assert keys == set()
+    # The example selector is also a selectbox; only ethnicity keys count.
+    def ethnicity_keys(at):
+        return {s.key for s in at.selectbox if s.key.startswith("ethnicity_")}
+
+    assert ethnicity_keys(_run()) == {"ethnicity_gli_2012", "ethnicity_nhanes3"}
+    assert ethnicity_keys(_run(equations=["gli_2022", "kubota_2014"])) == set()
 
 
 def test_the_comparison_notes_need_both_gli_equations():
@@ -220,3 +222,127 @@ def test_the_ethnicity_choice_survives_deselecting_the_equation():
     at.run()
     assert not at.exception
     assert at.selectbox(key="ethnicity_gli_2012").value == "African-American"
+
+
+# Presets and the what-if comparison.
+
+def _cell(at, equation, column="Change in z", tab=0):
+    return at.table[tab].value.set_index("Equation").loc[equation, column]
+
+
+def _z(key, ethnicity=1, **inputs):
+    from quadrant.registry import Subject, compute_equation
+
+    values = {"age_years": 40.0, "height_cm": 170.0, "sex_code": 1,
+              "fev1": 3.20, "fvc": 4.00} | inputs
+    table = compute_equation(key, Subject(**values), ethnicity)
+    return dict(zip(table["parameter"], table["z_score"]))
+
+
+def test_choosing_a_preset_sets_the_inputs():
+    from quadrant.presets import PRESETS
+
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    assert at.selectbox(key="preset").value == "custom"
+    at.selectbox(key="preset").select("obstructive")
+    at.run()
+    assert not at.exception
+    preset = PRESETS["obstructive"]
+    assert at.number_input(key="age_years").value == preset.age_years
+    assert at.number_input(key="height_cm").value == preset.height_cm
+    assert at.number_input(key="fev1").value == preset.fev1
+    assert at.number_input(key="fvc").value == preset.fvc
+    assert at.button_group(key="sex").value == "Male"
+    assert "Pattern consistent with obstructive" in _markdown(at)
+    at.selectbox(key="preset").select("restrictive")
+    at.run()
+    assert at.button_group(key="sex").value == "Female"
+
+
+def test_an_edit_after_a_preset_is_kept_on_later_reruns():
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    at.selectbox(key="preset").select("normal_adult")
+    at.run()
+    at.number_input(key="fev1").set_value(2.10)
+    at.run()
+    at.run()
+    assert not at.exception
+    assert at.number_input(key="fev1").value == 2.10
+    assert at.selectbox(key="preset").value == "custom"
+
+
+def test_the_examples_are_called_synthetic():
+    captions = " ".join(str(c.value) for c in _run().caption)
+    assert "synthetic" in captions
+    assert "not patient data" in captions
+
+
+def test_pinning_adds_a_change_column():
+    at = _run()
+    assert "Change in z" not in at.table[0].value.columns
+    at.button(key="pin_button").click()
+    at.run()
+    assert not at.exception
+    assert _cell(at, "GLI-2012") in ("0.00", "+0.00")
+    assert any(
+        str(c.value).startswith("Compared with the pinned values: age 40 years, "
+                                "height 170 cm, male, FEV1 3.20 L, FVC 4.00 L")
+        for c in at.caption
+    )
+    at.number_input(key="fev1").set_value(2.80)
+    at.run()
+    expected = _z("gli_2012", fev1=2.80)["FEV1"] - _z("gli_2012")["FEV1"]
+    assert _cell(at, "GLI-2012") == f"{expected:+.2f}"
+    assert _cell(at, "GLI-2012").startswith("-")
+
+
+def test_the_pin_survives_a_rerun():
+    at = _run()
+    at.button(key="pin_button").click()
+    at.run()
+    at.number_input(key="age_years").set_value(60.0)
+    at.run()
+    at.run()
+    assert not at.exception
+    expected = _z("gli_2012", age_years=60.0)["FEV1"] - _z("gli_2012")["FEV1"]
+    assert _cell(at, "GLI-2012") == f"{expected:+.2f}"
+
+
+def test_clearing_the_pin_removes_it():
+    at = _run()
+    at.button(key="pin_button").click()
+    at.run()
+    assert "Change in z" in at.table[0].value.columns
+    at.button(key="clear_pin").click()
+    at.run()
+    assert not at.exception
+    assert "pin" not in at.session_state
+    assert "Change in z" not in at.table[0].value.columns
+    assert not any(str(c.value).startswith("Compared with") for c in at.caption)
+    assert at.button(key="clear_pin").proto.disabled
+
+
+def test_the_pin_compares_only_the_equations_in_both():
+    at = _run(equations=["gli_2012", "nhanes3"])
+    at.button(key="pin_button").click()
+    at.run()
+    at.button_group(key="equations_recommended").set_value(["gli_2012", "gli_2022"])
+    at.run()
+    assert not at.exception
+    assert _matrix_rows(at) == ["GLI-2012", "GLI-Global 2022", "NHANES III"]
+    assert _cell(at, "GLI-2012") in ("0.00", "+0.00")
+    # GLI-Global 2022 was not pinned, so it has no change.
+    assert _cell(at, "GLI-Global 2022") == "\\-"
+
+
+def test_a_pinned_nan_shows_a_hyphen():
+    at = _run(equations=["gli_2012", "eccs_1993"])
+    at.button(key="pin_button").click()
+    at.run()
+    at.number_input(key="fev1").set_value(2.80)
+    at.run()
+    assert not at.exception
+    assert _cell(at, "ECCS/Quanjer 1993") == "\\-"
+    assert "nan" not in _page_text(at).lower()
