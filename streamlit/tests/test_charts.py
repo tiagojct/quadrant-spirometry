@@ -6,12 +6,12 @@ import pytest
 from quadrant.charts import (
     BANDS,
     EDGE_MARGIN,
-    FAMILY_STYLE,
     Z_AXIS_MAX,
     Z_AXIS_MIN,
     band_frame,
     comparison_chart,
     points_frame,
+    style_for,
 )
 from quadrant.constants import LLN_Z, SEVERITY_MILD_Z_MIN, SEVERITY_MODERATE_Z_MIN
 
@@ -69,7 +69,7 @@ def test_no_chart_without_results():
 
 def test_the_chart_has_bands_a_lln_line_labels_and_markers():
     chart = comparison_chart(
-        {name: _table([-1, -2, -3]) for name in FAMILY_STYLE}
+        {name: _table([-1, -2, -3]) for name in ("GLI-2012", "GLI-Global 2022", "NHANES III")}
     )
     spec = chart.to_dict()
     marks = [layer["mark"]["type"] for layer in spec["layer"]]
@@ -84,7 +84,36 @@ def test_the_chart_has_bands_a_lln_line_labels_and_markers():
     assert spec["resolve"]["scale"]["fill"] == "independent"
 
 
-def test_the_marker_order_follows_the_style_table():
+def test_the_marker_order_follows_the_input_order():
     chart = comparison_chart({"NHANES III": _table([0, 0, 0]), "GLI-2012": _table([0, 0, 0])})
     marker = chart.to_dict()["layer"][3]["encoding"]
-    assert marker["color"]["scale"]["domain"] == ["GLI-2012", "NHANES III"]
+    assert marker["color"]["scale"]["domain"] == ["NHANES III", "GLI-2012"]
+
+
+def test_style_pairs_are_distinct_for_eight_equations():
+    pairs = [style_for(i) for i in range(8)]
+    assert len(set(pairs)) == 8
+    assert len({colour for colour, _ in pairs}) == 8
+    assert len({shape for _, shape in pairs}) == 8
+    assert pairs[0] == ("#2563eb", "circle")
+    assert pairs[1] == ("#9333ea", "square")
+    assert pairs[2] == ("#111827", "diamond")
+    assert style_for(8) == style_for(0)
+
+
+def test_chart_skips_nan_z_scores():
+    nan = float("nan")
+    frame = points_frame({"A": _table([-1, nan, -3]), "B": _table([nan, nan, nan])})
+    assert len(frame) == 2
+    assert set(frame["family"]) == {"A"}
+    assert "nan" not in " ".join(frame["z_text"])
+    spec = comparison_chart({"A": _table([-1, nan, -3]), "B": _table([nan, nan, nan])}).to_dict()
+    assert "nan" not in str(spec["datasets"]).lower()
+
+
+def test_chart_height_grows_with_equations():
+    for n in (1, 3, 6, 8):
+        tables = {f"Eq {i}": _table([-1, -2, -3]) for i in range(n)}
+        assert comparison_chart(tables).to_dict()["height"] == 120 + 64 * n
+    spec = comparison_chart({f"Eq {i}": _table([0, 0, 0]) for i in range(8)}).to_dict()
+    assert spec["layer"][3]["encoding"]["color"]["legend"]["columns"] == 4

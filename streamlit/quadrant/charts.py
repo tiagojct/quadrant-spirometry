@@ -23,13 +23,28 @@ EDGE_MARGIN = 0.15
 
 PARAMETER_LABELS = {"FEV1": "FEV1", "FVC": "FVC", "FEV1FVC": "FEV1/FVC"}
 
-# Marker colour and shape for each family. The shapes repeat the colours,
-# so the chart stays readable without colour vision.
-FAMILY_STYLE = {
-    "GLI-2012": ("#2563eb", "circle"),
-    "GLI-Global 2022": ("#9333ea", "square"),
-    "NHANES III": ("#111827", "diamond"),
-}
+# Marker colour and shape, in order of use. The first three keep the
+# original look. The colours come from the chart-room palette and the
+# markers differ in shape too, so the chart stays readable without
+# colour vision and on both themes (markers carry a white outline).
+STYLES = (
+    ("#2563eb", "circle"),
+    ("#9333ea", "square"),
+    ("#111827", "diamond"),
+    ("#b45309", "triangle-up"),
+    ("#0f766e", "triangle-down"),
+    ("#d9b56a", "triangle-right"),
+    ("#be185d", "triangle-left"),
+    ("#7c2d12", "cross"),
+)
+
+LEGEND_COLUMNS = 4
+
+
+def style_for(index: int) -> tuple[str, str]:
+    """Colour and shape for the equation at this position. Wraps after eight."""
+    return STYLES[index % len(STYLES)]
+
 
 # Severity bands from the lowest z-score up: lower bound, upper bound,
 # legend label and colour.
@@ -51,7 +66,7 @@ def band_frame() -> pd.DataFrame:
 def points_frame(family_tables: dict) -> pd.DataFrame:
     """Long table with one row for each family and parameter.
 
-    Families without a result are left out. z_plot is the z-score clamped
+    Families without a result and rows without a z-score are left out. z_plot is the z-score clamped
     to the axis, so an extreme value sits just inside the edge. The tooltip shows
     the real z-score.
     """
@@ -60,6 +75,8 @@ def points_frame(family_tables: dict) -> pd.DataFrame:
         if table is None:
             continue
         for row in table.itertuples(index=False):
+            if pd.isna(row.z_score):
+                continue
             rows.append(
                 {
                     "family": family,
@@ -76,7 +93,11 @@ def points_frame(family_tables: dict) -> pd.DataFrame:
                     "percent_predicted": float(row.percent_predicted),
                 }
             )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(
+        rows,
+        columns=["family", "parameter", "z_score", "z_plot", "z_text", "observed",
+                 "predicted", "lln", "percent_predicted"],
+    )
 
 
 def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
@@ -86,7 +107,12 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
         return None
 
     bands = band_frame()
-    families = [name for name in FAMILY_STYLE if name in set(points["family"])]
+    # The style follows the position in the input, so an equation keeps its
+    # colour when another has no plotted point. An equation with only
+    # missing z-scores is not plotted and has no legend entry.
+    plotted = set(points["family"])
+    styles = {name: style_for(i) for i, name in enumerate(family_tables)}
+    families = [name for name in family_tables if name in plotted]
     parameters = [PARAMETER_LABELS[p] for p in SPIROMETRY_PARAMS]
 
     x_scale = alt.Scale(domain=[Z_AXIS_MIN, Z_AXIS_MAX], nice=False)
@@ -139,10 +165,10 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
     )
     y_offset = alt.YOffset("family:N", sort=families)
     family_scale_colour = alt.Scale(
-        domain=families, range=[FAMILY_STYLE[f][0] for f in families]
+        domain=families, range=[styles[f][0] for f in families]
     )
     family_scale_shape = alt.Scale(
-        domain=families, range=[FAMILY_STYLE[f][1] for f in families]
+        domain=families, range=[styles[f][1] for f in families]
     )
 
     marker_layer = (
@@ -159,6 +185,7 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
                     title="Reference equation",
                     orient="bottom",
                     direction="horizontal",
+                    columns=LEGEND_COLUMNS,
                     labelFontSize=12,
                     titleFontSize=12,
                     symbolSize=160,
@@ -191,7 +218,7 @@ def comparison_chart(family_tables: dict) -> alt.LayerChart | None:
     return (
         alt.layer(band_layer, lln_layer, label_layer, marker_layer)
         .resolve_scale(color="independent", fill="independent", shape="independent")
-        .properties(height=360)
+        .properties(height=120 + 64 * len(families))
         .configure_view(stroke=None)
         .configure_legend(padding=6)
     )

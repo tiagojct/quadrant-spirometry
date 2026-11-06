@@ -15,7 +15,6 @@ from quadrant.fragments import (
     results_for_display,
 )
 from quadrant.visuals import (
-    FAMILY_COLOURS,
     SEVERITY_BANDS,
     Z_AXIS_MAX,
     Z_AXIS_MIN,
@@ -125,9 +124,10 @@ def test_chart_draws_one_marker_per_family_and_parameter():
          "NHANES III": _table([0, 0, 0])}
     )
     assert svg.startswith("<svg") and is_svg(svg)
-    for family in FAMILY_COLOURS:
+    for family in ("GLI-2012", "GLI-Global 2022", "NHANES III"):
         assert family in svg
-    assert svg.count("<circle") == 12  # nine markers and three legend circles
+    assert svg.count('class="marker"') == 9
+    assert svg.count('class="legend-marker"') == 3
 
 
 def test_chart_skips_families_without_results():
@@ -244,3 +244,15 @@ def test_interpretation_fragments_have_no_nan_text_for_either_table():
         result = interpret_spirometry(table)
         for html in (render_interpretation(result), render_pattern_badge(result)):
             assert "nan" not in html.lower()
+
+
+def test_svg_has_one_marker_per_equation_and_parameter_for_six_equations():
+    nan = float("nan")
+    tables = {f"Eq {i}": _table([-1, -2, -3]) for i in range(5)}
+    tables["Eq 5"] = _table([-1, nan, nan])
+    svg = cross_family_chart_svg(tables)
+    assert svg.count('class="marker"') == 5 * 3 + 1
+    assert svg.count('class="legend-marker"') == 6
+    assert "nan" not in svg.lower()
+    for i in range(6):
+        assert f"Eq {i}" in svg

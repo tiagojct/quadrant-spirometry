@@ -7,6 +7,7 @@ so no plotting library is needed. Ported from R/visuals.R.
 from __future__ import annotations
 
 from html import escape
+from math import isnan
 
 from .constants import (
     LLN_Z,
@@ -14,6 +15,7 @@ from .constants import (
     SEVERITY_MODERATE_Z_MIN,
     SPIROMETRY_PARAMS,
 )
+from .charts import LEGEND_COLUMNS, style_for
 
 Z_AXIS_MIN = -5
 Z_AXIS_MAX = 3
@@ -26,14 +28,6 @@ SEVERITY_BANDS = (
     {"z_lo": SEVERITY_MILD_Z_MIN, "z_hi": LLN_Z, "fill": "#facc15", "label": "mild"},
     {"z_lo": LLN_Z, "z_hi": Z_AXIS_MAX, "fill": "#86efac", "label": "normal"},
 )
-
-# Marker colours per reference equation family.
-FAMILY_COLOURS = {
-    "GLI-2012": "#1e3a8a",
-    "GLI-Global 2022": "#7c2d12",
-    "NHANES III": "#0f172a",
-}
-
 
 def z_to_x(z: float, pad_left: float, plot_width: float) -> float:
     """Map a z-score to an SVG x coordinate, clamped to the axis range."""
@@ -99,27 +93,59 @@ def severity_legend_svg(y: float, pad_left: float, plot_width: float, font_size:
     return "".join(parts)
 
 
+def marker_svg(shape: str, cx: float, cy: float, r: float, colour: str, css_class: str) -> str:
+    """One marker. The shape names follow the Vega shape names in charts.py."""
+    common = f'class="{css_class}" fill="{colour}" stroke="white" stroke-width="2"'
+    if shape == "circle":
+        return f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="{r:.2f}" {common} />'
+    if shape == "square":
+        return (f'<rect x="{cx - r:.2f}" y="{cy - r:.2f}" width="{2 * r:.2f}" '
+                f'height="{2 * r:.2f}" {common} />')
+    points = {
+        "diamond": [(0, -1.25), (1.25, 0), (0, 1.25), (-1.25, 0)],
+        "triangle-up": [(0, -1.2), (1.1, 0.9), (-1.1, 0.9)],
+        "triangle-down": [(0, 1.2), (1.1, -0.9), (-1.1, -0.9)],
+        "triangle-right": [(1.2, 0), (-0.9, 1.1), (-0.9, -1.1)],
+        "triangle-left": [(-1.2, 0), (0.9, 1.1), (0.9, -1.1)],
+        "cross": [(-0.4, -1.2), (0.4, -1.2), (0.4, -0.4), (1.2, -0.4), (1.2, 0.4),
+                  (0.4, 0.4), (0.4, 1.2), (-0.4, 1.2), (-0.4, 0.4), (-1.2, 0.4),
+                  (-1.2, -0.4), (-0.4, -0.4)],
+    }[shape]
+    coords = " ".join(f"{cx + x * r:.2f},{cy + y * r:.2f}" for x, y in points)
+    return f'<polygon points="{coords}" {common} />'
+
+
+def _has_z(df, parameter: str) -> float | None:
+    z_values = df.loc[df["parameter"] == parameter, "z_score"]
+    if z_values.empty or isnan(float(z_values.iloc[0])):
+        return None
+    return float(z_values.iloc[0])
+
+
 def cross_family_chart_svg(family_tables: dict) -> str:
     """SVG chart with the three parameters on a shared z-axis.
 
-    family_tables maps a family name to its long-form table, or to None
-    when the family has no result. Families without a result are left
-    out. Returns a bare <svg> string, or an HTML prompt when no family
-    has a result. Use is_svg() to tell them apart.
+    family_tables maps an equation name to its long-form table, or to None
+    when the equation has no result. Equations without a result are left
+    out, and so is a parameter with a missing z-score. The legend wraps
+    after four entries. Returns a bare <svg> string, or an HTML prompt
+    when no equation has a result. Use is_svg() to tell them apart.
     """
+    styles = {name: style_for(i) for i, name in enumerate(family_tables)}
     active = {name: df for name, df in family_tables.items() if df is not None}
     if not active:
         return "<em>Enter values to render the comparison chart.</em>"
 
-    total_width, total_height = 1100, 360
+    n_equations = len(active)
+    total_width = 1100
     pad_left, pad_right = 110, 20
     plot_width = total_width - pad_left - pad_right
-    row_height, row_gap, top_pad = 56, 14, 36
+    # Each equation needs its own lane inside a parameter strip.
+    row_height, row_gap, top_pad = max(56, 18 * n_equations + 8), 14, 36
 
     band_labels = severity_legend_svg(top_pad - 14, pad_left, plot_width, font_size=13)
 
     rows = []
-    n_families = len(active)
     for i, parameter in enumerate(SPIROMETRY_PARAMS):
         y = top_pad + i * (row_height + row_gap)
         bands = severity_bands_svg(y, row_height, pad_left, plot_width, band_opacity=0.6)
@@ -130,18 +156,16 @@ def cross_family_chart_svg(family_tables: dict) -> str:
         )
         markers = []
         for j, (family, df) in enumerate(active.items()):
-            z_values = df.loc[df["parameter"] == parameter, "z_score"]
-            if z_values.empty or z_values.isna().iloc[0]:
+            z = _has_z(df, parameter)
+            if z is None:
                 continue
-            z = float(z_values.iloc[0])
-            colour = FAMILY_COLOURS[family]
+            colour, shape = styles[family]
             cx = z_to_x(z, pad_left, plot_width)
-            cy = y + (j + 0.5) * (row_height / n_families)
+            cy = y + (j + 0.5) * (row_height / n_equations)
             markers.append(
-                f'<circle cx="{cx:.2f}" cy="{cy:.2f}" r="9" fill="{colour}" '
-                'stroke="white" stroke-width="2.5" />'
-                f'<text x="{cx:.2f}" y="{cy - 13:.2f}" font-size="12" '
-                f'text-anchor="middle" fill="{colour}" font-weight="700">{z:.2f}</text>'
+                marker_svg(shape, cx, cy, 7, colour, "marker")
+                + f'<text x="{cx + 13:.2f}" y="{cy + 4:.2f}" font-size="12" '
+                f'text-anchor="start" fill="#0f172a" font-weight="700">{z:.2f}</text>'
             )
         rows.append(bands + label + "".join(markers))
 
@@ -153,19 +177,23 @@ def cross_family_chart_svg(family_tables: dict) -> str:
     )
 
     legend_y = axis_y + 44
+    legend_step = plot_width / LEGEND_COLUMNS
     legend = []
     for k, family in enumerate(active):
-        colour = FAMILY_COLOURS[family]
-        legend_x = pad_left + k * 220
+        colour, shape = styles[family]
+        legend_x = pad_left + (k % LEGEND_COLUMNS) * legend_step
+        row_y = legend_y + (k // LEGEND_COLUMNS) * 26
         legend.append(
-            f'<circle cx="{legend_x:.2f}" cy="{legend_y:.2f}" r="7" fill="{colour}" />'
-            f'<text x="{legend_x + 12:.2f}" y="{legend_y + 5:.2f}" font-size="13" '
+            marker_svg(shape, legend_x, row_y, 6, colour, "legend-marker")
+            + f'<text x="{legend_x + 14:.2f}" y="{row_y + 5:.2f}" font-size="13" '
             f'fill="#1f2937" font-weight="600">{escape(family)}</text>'
         )
+    legend_rows = (n_equations - 1) // LEGEND_COLUMNS + 1
+    total_height = legend_y + (legend_rows - 1) * 26 + 24
 
     # The white background keeps the dark labels readable on dark themes.
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {total_width} {total_height}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {total_width} {total_height:.0f}" '
         'style="display:block;width:100%;height:auto;'
         'font-family:system-ui,-apple-system,sans-serif;" role="img" '
         'aria-label="cross-family z-score comparison">'
