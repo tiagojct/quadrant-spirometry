@@ -1,0 +1,43 @@
+# Quadrant Streamlit port: run the pytest suite when the port, the
+# shared rspiro fixtures or the verification log change.
+#
+# License: AGPL-3.0-or-later
+
+name: streamlit
+
+on:
+  push:
+    branches: [main, streamlit-port]
+    paths:
+      - "streamlit/**"
+      - "tests/testthat/fixtures/**"
+      - "docs/verification.md"
+      - ".github/workflows/streamlit.yaml"
+  pull_request:
+    paths:
+      - "streamlit/**"
+      - "tests/testthat/fixtures/**"
+      - "docs/verification.md"
+      - ".github/workflows/streamlit.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: streamlit
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Run test suite
+        run: uv run pytest
